@@ -171,7 +171,13 @@ function addMessage(text, isUser) {
     
     const bubbleDiv = document.createElement('div');
     bubbleDiv.className = 'message-bubble';
-    bubbleDiv.innerHTML = text;
+    
+    // Use textContent for user messages to prevent XSS, innerHTML only for bot responses with links
+    if (isUser) {
+        bubbleDiv.textContent = text;
+    } else {
+        bubbleDiv.innerHTML = text;
+    }
     
     messageDiv.appendChild(bubbleDiv);
     messagesDiv.appendChild(messageDiv);
