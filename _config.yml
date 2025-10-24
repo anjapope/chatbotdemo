@@ -1,0 +1,30 @@
+# Jekyll Configuration for Chatbot Design Training Tool
+
+title: Chatbot Design Training
+description: Training modules for information science graduate students learning chatbot design
+baseurl: "" # the subpath of your site, e.g. /blog
+url: "" # the base hostname & protocol for your site
+
+# Build settings
+theme: minima
+markdown: kramdown
+
+# Navigation items
+header_pages:
+  - index.md
+  - modules/introduction.md
+  - modules/conversation-design.md
+  - modules/user-experience.md
+  - modules/implementation.md
+  - chatbot.md
+
+# Exclude from processing
+exclude:
+  - Gemfile
+  - Gemfile.lock
+  - node_modules
+  - vendor/bundle/
+  - vendor/cache/
+  - vendor/gems/
+  - vendor/ruby/
+  - .gitignore
