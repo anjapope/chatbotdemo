@@ -334,8 +334,9 @@ async function pingBackend() {
   try {
     const res = await fetch(BACKEND_URL, { method: 'OPTIONS' });
     statusEl.textContent = res.ok ? 'online' : 'unreachable';
-  } catch { 
-    statusEl.textContent = 'unreachable'; 
+  } catch (error) { 
+    statusEl.textContent = 'unreachable';
+    console.error('Backend ping failed:', error);
   }
 }
 
@@ -357,7 +358,14 @@ async function send() {
   const max_tokens = Number(maxTokEl.value || 512);
 
   const userMsg = assemblePrompt(text);
-  messages.push({ role: 'system', content: sys }); // latest system replaces prior for simplicity
+  
+  // Build messages array for this request with current system message
+  const requestMessages = [
+    { role: 'system', content: sys },
+    ...messages.filter(m => m.role !== 'system'), // Exclude old system messages
+    { role: 'user', content: userMsg }
+  ];
+  
   messages.push({ role: 'user', content: userMsg });
 
   addMessage('user', text);
@@ -367,7 +375,7 @@ async function send() {
     const res = await fetch(BACKEND_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model, temperature, max_tokens, messages })
+      body: JSON.stringify({ model, temperature, max_tokens, messages: requestMessages })
     });
     if (!res.ok) throw new Error('Request failed');
 
@@ -391,7 +399,9 @@ async function send() {
               const j = JSON.parse(data); 
               botText += j.delta || ''; 
               last.querySelector('.message-content').textContent = botText; 
-            } catch {}
+            } catch (error) {
+              console.error('Failed to parse SSE data:', error);
+            }
           }
         }
       }
