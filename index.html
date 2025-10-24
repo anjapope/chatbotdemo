@@ -1,0 +1,432 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chatbot Demo</title>
+<style>
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+}
+
+.chatbot-window {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  width: 100%;
+  max-width: 800px;
+  height: 90vh;
+  max-height: 700px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.header h1 {
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.status-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #4ade80;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.config-panel {
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 16px;
+}
+
+.config-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.config-row:last-child {
+  margin-bottom: 0;
+}
+
+.config-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.config-field label {
+  font-size: 12px;
+  font-weight: 500;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.config-field input,
+.config-field select,
+.config-field textarea {
+  padding: 8px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+  transition: border-color 0.2s;
+}
+
+.config-field input:focus,
+.config-field select:focus,
+.config-field textarea:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.config-field textarea {
+  resize: vertical;
+  min-height: 60px;
+}
+
+.chat-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  background: #f8fafc;
+}
+
+.message {
+  display: flex;
+  margin-bottom: 16px;
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.message.user {
+  justify-content: flex-end;
+}
+
+.message-content {
+  max-width: 70%;
+  padding: 12px 16px;
+  border-radius: 12px;
+  line-height: 1.5;
+  font-size: 14px;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+}
+
+.message.user .message-content {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-bottom-right-radius: 4px;
+}
+
+.message.assistant .message-content {
+  background: white;
+  color: #1e293b;
+  border: 1px solid #e2e8f0;
+  border-bottom-left-radius: 4px;
+}
+
+.input-container {
+  background: white;
+  border-top: 1px solid #e2e8f0;
+  padding: 16px;
+  display: flex;
+  gap: 12px;
+}
+
+.input-wrapper {
+  flex: 1;
+  position: relative;
+}
+
+#userInput {
+  width: 100%;
+  padding: 12px 16px;
+  border: 2px solid #e2e8f0;
+  border-radius: 24px;
+  font-size: 14px;
+  font-family: inherit;
+  resize: none;
+  transition: border-color 0.2s;
+  max-height: 120px;
+}
+
+#userInput:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+#sendBtn {
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 24px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  white-space: nowrap;
+}
+
+#sendBtn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+#sendBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+#sendBtn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.chat-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.chat-container::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+.chat-container::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+.chat-container::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+</style>
+</head>
+<body>
+
+<div class="chatbot-window">
+  <div class="header">
+    <h1>AI Chatbot</h1>
+    <div class="status">
+      <span class="status-indicator"></span>
+      <span>Backend: <span id="statusEl">checking...</span></span>
+    </div>
+  </div>
+
+  <div class="config-panel">
+    <div class="config-row">
+      <div class="config-field">
+        <label>Model</label>
+        <select id="modelEl">
+          <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+          <option value="gpt-4">GPT-4</option>
+          <option value="gpt-4-turbo">GPT-4 Turbo</option>
+        </select>
+      </div>
+      <div class="config-field">
+        <label>Temperature</label>
+        <input type="number" id="tempEl" value="0.7" min="0" max="2" step="0.1">
+      </div>
+      <div class="config-field">
+        <label>Max Tokens</label>
+        <input type="number" id="maxTokEl" value="512" min="1" max="4096">
+      </div>
+    </div>
+    <div class="config-row">
+      <div class="config-field">
+        <label>System Prompt</label>
+        <textarea id="systemEl" placeholder="You are a helpful assistant.">You are a helpful assistant.</textarea>
+      </div>
+      <div class="config-field">
+        <label>Additional Context (Optional)</label>
+        <textarea id="ctxEl" placeholder="Add any context for the conversation..."></textarea>
+      </div>
+    </div>
+  </div>
+
+  <div class="chat-container" id="chatEl">
+    <!-- Messages will be added here -->
+  </div>
+
+  <div class="input-container">
+    <div class="input-wrapper">
+      <textarea id="userInput" placeholder="Type your message..." rows="1"></textarea>
+    </div>
+    <button id="sendBtn">Send</button>
+  </div>
+</div>
+
+<script>
+const BACKEND_URL = 'http://localhost:3000/chat'; // Configure your backend URL
+
+const statusEl = document.getElementById('statusEl');
+const ctxEl = document.getElementById('ctxEl');
+const userInput = document.getElementById('userInput');
+const sendBtn = document.getElementById('sendBtn');
+const systemEl = document.getElementById('systemEl');
+const modelEl = document.getElementById('modelEl');
+const tempEl = document.getElementById('tempEl');
+const maxTokEl = document.getElementById('maxTokEl');
+const chatEl = document.getElementById('chatEl');
+
+let messages = [];
+let busy = false;
+
+function addMessage(role, content) {
+  const msgDiv = document.createElement('div');
+  msgDiv.className = `message ${role}`;
+  const contentDiv = document.createElement('div');
+  contentDiv.className = 'message-content';
+  contentDiv.textContent = content;
+  msgDiv.appendChild(contentDiv);
+  chatEl.appendChild(msgDiv);
+  chatEl.scrollTop = chatEl.scrollHeight;
+}
+
+async function pingBackend() {
+  try {
+    const res = await fetch(BACKEND_URL, { method: 'OPTIONS' });
+    statusEl.textContent = res.ok ? 'online' : 'unreachable';
+  } catch { 
+    statusEl.textContent = 'unreachable'; 
+  }
+}
+
+function assemblePrompt(userText) {
+  const ctx = ctxEl.value?.trim();
+  return ctx ? `Context: ${ctx}\n\nUser: ${userText}` : userText;
+}
+
+async function send() {
+  if (busy) return;
+  const text = userInput.value.trim();
+  if (!text) return;
+  busy = true; 
+  sendBtn.disabled = true;
+
+  const sys = systemEl.value.trim();
+  const model = modelEl.value;
+  const temperature = Number(tempEl.value || 0.7);
+  const max_tokens = Number(maxTokEl.value || 512);
+
+  const userMsg = assemblePrompt(text);
+  messages.push({ role: 'system', content: sys }); // latest system replaces prior for simplicity
+  messages.push({ role: 'user', content: userMsg });
+
+  addMessage('user', text);
+  userInput.value = '';
+
+  try {
+    const res = await fetch(BACKEND_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model, temperature, max_tokens, messages })
+    });
+    if (!res.ok) throw new Error('Request failed');
+
+    // Stream or JSON
+    const ct = res.headers.get('content-type') || '';
+    if (ct.includes('text/event-stream')) {
+      let botText = '';
+      addMessage('assistant', '');
+      const last = chatEl.lastChild;
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const chunk = decoder.decode(value, { stream: true });
+        for (const line of chunk.split('\n')) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6).trim();
+            if (data === '[DONE]') break;
+            try { 
+              const j = JSON.parse(data); 
+              botText += j.delta || ''; 
+              last.querySelector('.message-content').textContent = botText; 
+            } catch {}
+          }
+        }
+      }
+      messages.push({ role: 'assistant', content: botText });
+    } else {
+      const json = await res.json();
+      const reply = json.reply || '(no reply)';
+      addMessage('assistant', reply);
+      messages.push({ role: 'assistant', content: reply });
+    }
+  } catch (e) {
+    addMessage('assistant', 'Error contacting backend. Check console / endpoint.');
+    console.error(e);
+  } finally {
+    busy = false; 
+    sendBtn.disabled = false;
+  }
+}
+
+userInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) { 
+    e.preventDefault(); 
+    send(); 
+  }
+});
+
+sendBtn.addEventListener('click', send);
+
+// Auto-resize textarea
+userInput.addEventListener('input', function() {
+  this.style.height = 'auto';
+  this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+});
+
+pingBackend();
+</script>
+</body>
+</html>
