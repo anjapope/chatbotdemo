@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Compare Responses — Megalogoi</title>
+<link rel="stylesheet" href="theme.css">
+<link rel="stylesheet" href="styles.css">
+<style>
+.container{max-width:1100px;margin:36px auto;display:flex;flex-direction:column;gap:12px}
+.row{display:flex;gap:12px}
+.col{flex:1;padding:12px;background:rgba(255,255,255,0.02);border-radius:8px}
+.vote-bar{display:flex;gap:8px;justify-content:center;margin-top:8px}
+</style>
+</head>
+<body>
+<nav class="topnav">
+  <a class="brand" href="index.html"><span class="dot" aria-hidden></span> Megalogoi Training Chatbot</a>
+  <div class="nav-links">
+    <a href="index.html">Home</a>
+    <a href="chat.html">Chat</a>
+    <a href="compare.html" class="primary">Compare</a>
+    <a href="instructions.html">Instructions</a>
+    <a href="peer_review.html">Peer Review</a>
+  </div>
+</nav>
+<div class="container">
+  <h1>Compare two responses</h1>
+  <div>
+    <label>Prompt</label>
+    <textarea id="prompt" rows="2" style="width:100%"></textarea>
+  </div>
+  <div style="display:flex;gap:8px">
+    <button id="genBtn">Generate two responses</button>
+    <button id="refreshBtn">Refresh</button>
+  </div>
+  <div class="row">
+    <div class="col" id="leftCol">
+      <h3>Response A</h3>
+      <div id="respA">(empty)</div>
+      <div class="vote-bar"><button id="voteA">Vote A</button></div>
+      <div style="margin-top:12px">
+        <label><strong>Rate Response A</strong></label>
+        <div style="display:flex;flex-direction:column;gap:6px;margin-top:6px">
+          <div><label>Factuality <span id="factA_val">—</span></label><br><input id="factA" type="range" min="1" max="5" step="1" value="3" style="width:100%"></div>
+          <div><label>Appropriateness <span id="appA_val">—</span></label><br><input id="appA" type="range" min="1" max="5" step="1" value="3" style="width:100%"></div>
+          <div><label>Clarity <span id="clarA_val">—</span></label><br><input id="clarA" type="range" min="1" max="5" step="1" value="3" style="width:100%"></div>
+        </div>
+      </div>
+      <div style="margin-top:12px">
+        <label><strong>Critique A</strong></label>
+        <textarea id="critA" rows="3" style="width:100%" placeholder="Write a short critique of Response A"></textarea>
+        <div style="display:flex;gap:8px;margin-top:6px">
+          <button id="saveCritA">Save critique A</button>
+          <span id="critASaved" style="color:#6c6;display:none;margin-left:6px">Saved</span>
+        </div>
+      </div>
+      <div style="margin-top:12px">
+        <label><strong>Rewrite A</strong></label>
+        <textarea id="rewriteA" rows="4" style="width:100%" placeholder="Rewrite Response A to improve it"></textarea>
+        <div style="display:flex;gap:8px;margin-top:6px">
+          <button id="saveRewriteA">Save rewrite A</button>
+          <span id="rewriteASaved" style="color:#6c6;display:none;margin-left:6px">Saved</span>
+        </div>
+      </div>
+    </div>
+    <div class="col" id="rightCol">
+      <h3>Response B</h3>
+      <div id="respB">(empty)</div>
+      <div class="vote-bar"><button id="voteB">Vote B</button></div>
+        <div style="margin-top:12px">
+          <label><strong>Rate Response B</strong></label>
+          <div style="display:flex;flex-direction:column;gap:6px;margin-top:6px">
+            <div><label>Factuality <span id="factB_val">—</span></label><br><input id="factB" type="range" min="1" max="5" step="1" value="3" style="width:100%"></div>
+            <div><label>Appropriateness <span id="appB_val">—</span></label><br><input id="appB" type="range" min="1" max="5" step="1" value="3" style="width:100%"></div>
+            <div><label>Clarity <span id="clarB_val">—</span></label><br><input id="clarB" type="range" min="1" max="5" step="1" value="3" style="width:100%"></div>
+          </div>
+        </div>
+      <div style="margin-top:12px">
+        <label><strong>Critique B</strong></label>
+        <textarea id="critB" rows="3" style="width:100%" placeholder="Write a short critique of Response B"></textarea>
+        <div style="display:flex;gap:8px;margin-top:6px">
+          <button id="saveCritB">Save critique B</button>
+          <span id="critBSaved" style="color:#6c6;display:none;margin-left:6px">Saved</span>
+        </div>
+      </div>
+      <div style="margin-top:12px">
+        <label><strong>Rewrite B</strong></label>
+        <textarea id="rewriteB" rows="4" style="width:100%" placeholder="Rewrite Response B to improve it"></textarea>
+        <div style="display:flex;gap:8px;margin-top:6px">
+          <button id="saveRewriteB">Save rewrite B</button>
+          <span id="rewriteBSaved" style="color:#6c6;display:none;margin-left:6px">Saved</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="status" class="loading">Ready</div>
+</div>
+<script>
+const API = 'http://localhost:3000';
+const genBtn = document.getElementById('genBtn');
+const refreshBtn = document.getElementById('refreshBtn');
+const respA = document.getElementById('respA');
+const respB = document.getElementById('respB');
+const voteA = document.getElementById('voteA');
+const voteB = document.getElementById('voteB');
+const promptEl = document.getElementById('prompt');
+const status = document.getElementById('status');
+let lastPair = null;
+const countsA = document.createElement('span');
+const countsB = document.createElement('span');
+voteA.parentElement.appendChild(countsA);
+voteB.parentElement.appendChild(countsB);
+
+// Track votes client-side so a user can only vote once per pair
+const STORAGE_KEY = 'compare_voted'; // maps itemId -> { winner: 'A'|'B', ts }
+function loadVotedMap(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  }catch(e){ return {}; }
+}
+function saveVotedMap(m){
+  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(m)); }catch(e){}
+}
+function hasVoted(itemId){
+  if(!itemId) return false;
+  const m = loadVotedMap();
+  return !!m[itemId];
+}
+function setVoted(itemId, winner){
+  if(!itemId) return;
+  const m = loadVotedMap();
+  m[itemId] = { winner: winner, ts: (new Date()).toISOString() };
+  saveVotedMap(m);
+}
+function updateVoteButtonsState(itemId){
+  const voted = hasVoted(itemId);
+  voteA.disabled = voted;
+  voteB.disabled = voted;
+  if(voted){
+    const m = loadVotedMap();
+    const rec = m[itemId];
+    status.textContent = rec ? `You already voted (${rec.winner})` : 'You already voted';
+  }
+}
+
+// Critique / rewrite storage helpers (per-pair)
+const CR_STORE = 'compare_critiques'; // maps itemId -> { critA, critB, rewriteA, rewriteB }
+function loadCritMap(){
+  try{ const raw = localStorage.getItem(CR_STORE); return raw ? JSON.parse(raw) : {}; }catch(e){ return {}; }
+}
+function saveCritMap(m){ try{ localStorage.setItem(CR_STORE, JSON.stringify(m)); }catch(e){} }
+function loadCritFor(id){ if(!id) return {}; const m = loadCritMap(); return m[id] || {}; }
+function saveCritFor(id, obj){ if(!id) return; const m = loadCritMap(); m[id] = Object.assign(m[id]||{}, obj); saveCritMap(m); }
+
+// UI elements for critiques/rewrites
+const critA = document.getElementById('critA');
+const critB = document.getElementById('critB');
+const rewriteA = document.getElementById('rewriteA');
+const rewriteB = document.getElementById('rewriteB');
+const saveCritA = document.getElementById('saveCritA');
+const saveCritB = document.getElementById('saveCritB');
+const saveRewriteA = document.getElementById('saveRewriteA');
+const saveRewriteB = document.getElementById('saveRewriteB');
+const critASaved = document.getElementById('critASaved');
+const critBSaved = document.getElementById('critBSaved');
+const rewriteASaved = document.getElementById('rewriteASaved');
+const rewriteBSaved = document.getElementById('rewriteBSaved');
+
+// Slider inputs for ratings
+const factA = document.getElementById('factA');
+const appA = document.getElementById('appA');
+const clarA = document.getElementById('clarA');
+const factB = document.getElementById('factB');
+const appB = document.getElementById('appB');
+const clarB = document.getElementById('clarB');
+const factA_val = document.getElementById('factA_val');
+const appA_val = document.getElementById('appA_val');
+const clarA_val = document.getElementById('clarA_val');
+const factB_val = document.getElementById('factB_val');
+const appB_val = document.getElementById('appB_val');
+const clarB_val = document.getElementById('clarB_val');
+
+function setSliderValuesUI(data){
+  // data may include factA, appA, clarA, factB, appB, clarB
+  if(!data) data = {};
+  factA.value = data.factA || 3; factA_val.textContent = factA.value || '—';
+  appA.value = data.appA || 3; appA_val.textContent = appA.value || '—';
+  clarA.value = data.clarA || 3; clarA_val.textContent = clarA.value || '—';
+  factB.value = data.factB || 3; factB_val.textContent = factB.value || '—';
+  appB.value = data.appB || 3; appB_val.textContent = appB.value || '—';
+  clarB.value = data.clarB || 3; clarB_val.textContent = clarB.value || '—';
+}
+
+function saveSlidersFor(id){
+  if(!id) return;
+  saveCritFor(id, {
+    factA: parseInt(factA.value||3), appA: parseInt(appA.value||3), clarA: parseInt(clarA.value||3),
+    factB: parseInt(factB.value||3), appB: parseInt(appB.value||3), clarB: parseInt(clarB.value||3)
+  });
+}
+
+// update UI when sliders change and persist small auto-save
+for (const el of [factA,appA,clarA,factB,appB,clarB]){
+  el.addEventListener('input', ()=>{
+    // update display
+    factA_val.textContent = factA.value; appA_val.textContent = appA.value; clarA_val.textContent = clarA.value;
+    factB_val.textContent = factB.value; appB_val.textContent = appB.value; clarB_val.textContent = clarB.value;
+    if(lastPair) saveSlidersFor(lastPair.id);
+  });
+}
+
+function loadCritUIFor(id){
+  if(!id) return;
+  const data = loadCritFor(id);
+  critA.value = data.critA || '';
+  critB.value = data.critB || '';
+  rewriteA.value = data.rewriteA || '';
+  rewriteB.value = data.rewriteB || '';
+  critASaved.style.display = 'none'; critBSaved.style.display = 'none'; rewriteASaved.style.display = 'none'; rewriteBSaved.style.display = 'none';
+  // load sliders
+  setSliderValuesUI(data);
+}
+
+saveCritA.addEventListener('click', ()=>{
+  if(!lastPair) return alert('Generate a pair first');
+  saveCritFor(lastPair.id, { critA: critA.value });
+  critASaved.style.display = 'inline'; setTimeout(()=>critASaved.style.display='none', 1500);
+});
+saveCritB.addEventListener('click', ()=>{
+  if(!lastPair) return alert('Generate a pair first');
+  saveCritFor(lastPair.id, { critB: critB.value });
+  critBSaved.style.display = 'inline'; setTimeout(()=>critBSaved.style.display='none', 1500);
+});
+saveRewriteA.addEventListener('click', ()=>{
+  if(!lastPair) return alert('Generate a pair first');
+  saveCritFor(lastPair.id, { rewriteA: rewriteA.value });
+  rewriteASaved.style.display = 'inline'; setTimeout(()=>rewriteASaved.style.display='none', 1500);
+});
+saveRewriteB.addEventListener('click', ()=>{
+  if(!lastPair) return alert('Generate a pair first');
+  saveCritFor(lastPair.id, { rewriteB: rewriteB.value });
+  rewriteBSaved.style.display = 'inline'; setTimeout(()=>rewriteBSaved.style.display='none', 1500);
+});
+
+function sha1(str){
+  // small sha1 using Web Crypto if available
+  if (window.crypto && crypto.subtle && crypto.subtle.digest) {
+    const enc = new TextEncoder();
+    return crypto.subtle.digest('SHA-1', enc.encode(str)).then(buf=>{
+      return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+    });
+  }
+  // fallback: simple hash
+  let h = 0; for (let i=0;i<str.length;i++){ h = ((h<<5)-h)+str.charCodeAt(i); h |= 0; } return Promise.resolve((''+Math.abs(h)));
+}
+
+async function refreshCountsForPair(id){
+  try{
+    const res = await fetch(API + '/peer_rank_summary');
+    if(!res.ok) throw new Error('summary fetch failed');
+    const summary = await res.json();
+    const s = summary[id] || {'0':0,'1':0};
+    countsA.textContent = ` (${s['0']||0})`;
+    countsB.textContent = ` (${s['1']||0})`;
+  }catch(err){ console.error(err); countsA.textContent = ''; countsB.textContent = ''; }
+}
+
+async function generatePair(){
+  const prompt = (promptEl.value || '').trim();
+  if(!prompt){ alert('Enter a prompt'); return; }
+  status.textContent = 'Generating...';
+  try{
+    // Request two completions via the backend; backend will proxy to OpenAI if configured
+    const res = await fetch(API + '/chat', { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ messages: [{role:'user', content: prompt}], n: 2 }) });
+    if(!res.ok) throw new Error('generate failed');
+    const json = await res.json();
+    // If backend returns choices array, handle that; otherwise expect reply or replies
+    let a = '', b = '';
+    if (Array.isArray(json.choices)){
+      a = json.choices[0]?.message?.content || json.choices[0]?.text || '';
+      b = json.choices[1]?.message?.content || json.choices[1]?.text || '';
+    } else if (Array.isArray(json.replies)){
+      a = json.replies[0]||''; b = json.replies[1]||'';
+    } else if (json.reply && json.reply.length && Array.isArray(json.reply)){
+      a = json.reply[0]||''; b = json.reply[1]||'';
+    } else if (json.reply && typeof json.reply === 'string'){
+      a = json.reply; b = '(backend returned single reply)';
+    } else {
+      a = json.reply || '';
+    }
+  respA.textContent = a || '(empty)';
+  respB.textContent = b || '(empty)';
+  // compute stable id for this pair
+  const pairKey = `${prompt}\n---A---\n${a}\n---B---\n${b}`;
+  const id = await sha1(pairKey);
+  lastPair = { prompt, a, b, id };
+  // update buttons state based on whether the user already voted for this id
+  updateVoteButtonsState(id);
+  await refreshCountsForPair(id);
+  // load any saved critiques/rewrites for this pair
+  loadCritUIFor(id);
+  status.textContent = 'Choose which response you prefer';
+  }catch(err){
+    console.error(err); status.textContent = 'Failed to generate';
+  }
+}
+
+async function submitVote(winner){
+  if(!lastPair) { alert('Generate a pair first'); return; }
+  // Prevent double voting client-side
+  if(hasVoted(lastPair.id)){
+    status.textContent = 'You already voted for this pair';
+    updateVoteButtonsState(lastPair.id);
+    return;
+  }
+  try{
+    // Disable buttons immediately to give responsive feedback
+    voteA.disabled = true; voteB.disabled = true;
+    const res = await fetch(API + '/peer/rank', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ itemId: lastPair.id, responseIndex: winner === 'A' ? 0 : 1 }) });
+    if(!res.ok) throw new Error('vote failed');
+    // mark as voted locally so further clicks are ignored
+    setVoted(lastPair.id, winner);
+    status.textContent = 'Vote submitted — thanks';
+    // refresh counts
+    await refreshCountsForPair(lastPair.id);
+    updateVoteButtonsState(lastPair.id);
+  }catch(err){
+    console.error(err); status.textContent = 'Failed to submit vote';
+    // re-enable only if user hasn't actually voted
+    if(!hasVoted(lastPair.id)){
+      voteA.disabled = false; voteB.disabled = false;
+    }
+  }
+}
+
+genBtn.addEventListener('click', generatePair);
+refreshBtn.addEventListener('click', ()=>{ promptEl.value = ''; respA.textContent = '(empty)'; respB.textContent = '(empty)'; status.textContent = 'Ready'; lastPair = null; });
+voteA.addEventListener('click', ()=>submitVote('A'));
+voteB.addEventListener('click', ()=>submitVote('B'));
+</script>
+</body>
+</html>

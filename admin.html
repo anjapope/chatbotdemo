@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Admin — Reviews</title>
+  <link rel="stylesheet" href="theme.css">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="admin.css">
+  <style>
+    /* small inline to keep admin simple */
+  </style>
+</head>
+<body>
+  <nav class="topnav">
+    <a class="brand" href="index.html"><span class="dot" aria-hidden></span> Chatbot Demo</a>
+    <div class="nav-links"><a href="index.html">Home</a><a href="chat.html">Chat</a></div>
+  </nav>
+  <main class="card">
+    <h1>Admin — Reviews</h1>
+    <p>Enter the admin token to view and moderate reviews.</p>
+    <div style="margin-bottom:12px; display:flex; gap:8px; justify-content:center;">
+      <input id="token" placeholder="Admin token" style="padding:8px; width:320px;" />
+      <button id="login">Load Reviews</button>
+    </div>
+
+    <div id="status"></div>
+    <div id="reviews"></div>
+  </main>
+
+  <script>
+    const ADMIN_REVIEWS = '/admin/reviews';
+    const ADMIN_DELETE = '/admin/review/delete';
+    const statusEl = document.getElementById('status');
+    const reviewsEl = document.getElementById('reviews');
+    document.getElementById('login').addEventListener('click', async () => {
+      const token = document.getElementById('token').value.trim();
+      if (!token) return alert('Enter token');
+      statusEl.textContent = 'Loading...';
+      try {
+        const res = await fetch(ADMIN_REVIEWS, { headers: { 'X-Admin-Token': token } });
+        if (!res.ok) throw new Error('Forbidden or error');
+        const reviews = await res.json();
+        statusEl.textContent = `Loaded ${reviews.length} reviews`;
+        renderReviews(reviews, token);
+      } catch (e) {
+        statusEl.textContent = 'Error loading reviews';
+        console.error(e);
+      }
+    });
+
+    function renderReviews(reviews, token) {
+      reviewsEl.innerHTML = '';
+      if (!reviews.length) { reviewsEl.textContent = 'No reviews'; return; }
+      for (const r of reviews) {
+        const item = document.createElement('div');
+        item.className = 'review-item';
+        item.innerHTML = `<div class="meta"><strong>${r.messageId}</strong> — ${r.timestamp || ''} — rating: ${r.rating}</div>
+          <div class="assistant">${escapeHtml(r.assistantText || '')}</div>
+          <div class="comment">${escapeHtml(r.comment || '')}</div>
+          <div><button class="del">Delete</button></div>`;
+        const delBtn = item.querySelector('.del');
+        delBtn.addEventListener('click', async () => {
+          if (!confirm('Delete this review?')) return;
+          try {
+            const res = await fetch(ADMIN_DELETE, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Admin-Token': token }, body: JSON.stringify({ messageId: r.messageId }) });
+            if (!res.ok) throw new Error('Delete failed');
+            item.remove();
+          } catch (e) { alert('Delete failed'); console.error(e); }
+        });
+        reviewsEl.appendChild(item);
+      }
+    }
+
+    function escapeHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  </script>
+</body>
+</html>

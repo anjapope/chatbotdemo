@@ -1,0 +1,46 @@
+[
+  {
+    "itemId": "item-1",
+    "responseIndex": 0,
+    "student": "stu-1",
+    "score": 5
+  },
+  {
+    "itemId": "item-1",
+    "responseIndex": 0,
+    "student": "stu-1",
+    "score": 5
+  },
+  {
+    "itemId": "e95cbcb8257fdb4c4d34211b538f741d37d23f38",
+    "responseIndex": 0
+  },
+  {
+    "itemId": "e95cbcb8257fdb4c4d34211b538f741d37d23f38",
+    "responseIndex": 0
+  },
+  {
+    "itemId": "e95cbcb8257fdb4c4d34211b538f741d37d23f38",
+    "responseIndex": 0
+  },
+  {
+    "itemId": "e95cbcb8257fdb4c4d34211b538f741d37d23f38",
+    "responseIndex": 1
+  },
+  {
+    "itemId": "e95cbcb8257fdb4c4d34211b538f741d37d23f38",
+    "responseIndex": 1
+  },
+  {
+    "itemId": "e95cbcb8257fdb4c4d34211b538f741d37d23f38",
+    "responseIndex": 1
+  },
+  {
+    "itemId": "ba14658e6d296234b886c1506a3b742dc9aa044e",
+    "responseIndex": 0
+  },
+  {
+    "itemId": "3676a1e1a1d8ef08e0194b593fa148fa3fe8bd10",
+    "responseIndex": 1
+  }
+]

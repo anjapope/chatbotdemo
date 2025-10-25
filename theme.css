@@ -1,0 +1,30 @@
+/* Theme tokens: colors, spacing, radii, shadows, motion */
+:root {
+  /* Colors */
+  --font-stack: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --bg-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  --primary: #667eea;
+  --accent: #764ba2;
+  --surface: #ffffff;
+  --text-strong: #0f172a;
+  /* Brighter muted text for readability on the gradient background */
+  --muted: rgba(255,255,255,0.92);
+  --card-bg: rgba(255,255,255,0.06);
+
+  /* Layout tokens */
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --shadow-sm: 0 10px 30px rgba(0,0,0,0.12);
+  --shadow-md: 0 20px 60px rgba(0,0,0,0.3);
+  --ease: cubic-bezier(.2,.9,.3,1);
+}
+
+/* Dark theme example (toggle by setting data-theme="dark" on <html>) */
+:root[data-theme="dark"] {
+  --bg-gradient: linear-gradient(135deg, #1f2937 0%, #111827 100%);
+  --primary: #4f46e5;
+  --accent: #06b6d4;
+  --card-bg: rgba(255,255,255,0.04);
+  --text-strong: #e6eef8;
+  --muted: #9aa6b2;
+}

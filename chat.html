@@ -1,0 +1,482 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chatbot</title>
+<link rel="stylesheet" href="theme.css">
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="chat.css">
+</head>
+</head>
+<body>
+
+<div class="chatbot-window">
+  <nav class="topnav">
+    <a class="brand" href="index.html"><span class="dot" aria-hidden></span> Megalogoi Training Chatbot</a>
+    <div class="nav-links">
+      <a href="index.html">Home</a>
+  <a href="chat.html" class="primary">Chat</a>
+      <a href="compare.html">Compare</a>
+      <a href="instructions.html">Instructions</a>
+      <a href="peer_review.html">Peer Review</a>
+      <a href="README.md">README</a>
+    </div>
+  </nav>
+  <div class="header" style="margin-top:56px;">
+    <h1>Megalogoi Training Chatbot</h1>
+    <div class="status">
+      <span class="backend-dot backend-unknown" id="backendDot" aria-hidden="true"></span>
+      <span class="sr-only" id="statusEl">checking...</span>
+    </div>
+    <div class="ai-status hidden" id="aiStatus">
+      <div class="spinner" aria-hidden="true"></div>
+      <div>AI preparing response...</div>
+    </div>
+  </div>
+
+  <div class="config-panel">
+    <div class="config-row">
+      <div class="config-field">
+        <label>Model</label>
+        <select id="modelEl">
+          <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+          <option value="gpt-4">GPT-4</option>
+          <option value="gpt-4-turbo">GPT-4 Turbo</option>
+        </select>
+      </div>
+      <div class="config-field">
+        <label>Temperature</label>
+        <input type="number" id="tempEl" value="0.7" min="0" max="2" step="0.1">
+      </div>
+      <div class="config-field">
+        <label>Max Tokens</label>
+        <input type="number" id="maxTokEl" value="512" min="1" max="4096">
+      </div>
+    </div>
+    <div class="config-row">
+      <div class="config-field">
+        <label>System Prompt</label>
+        <textarea id="systemEl" placeholder="You are a helpful assistant.">You are a helpful assistant.</textarea>
+      </div>
+      <div class="config-field">
+        <label>Additional Context (Optional)</label>
+        <textarea id="ctxEl" placeholder="Add any context for the conversation..."></textarea>
+      </div>
+    </div>
+  </div>
+
+  <div class="chat-container" id="chatEl">
+    <!-- Messages will be added here -->
+  </div>
+
+  <div class="input-container">
+    <div class="input-wrapper">
+      <textarea id="userInput" placeholder="Type your message..." rows="1"></textarea>
+    </div>
+    <button id="sendBtn">Send</button>
+  </div>
+</div>
+
+<!-- Toast container for lightweight notifications -->
+<div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+
+<script>
+const BACKEND_URL = 'http://localhost:3000/chat'; // Configure your backend URL
+const REVIEW_URL = 'http://localhost:3000/review'; // Endpoint to submit ratings/reviews
+
+const statusEl = document.getElementById('statusEl');
+const ctxEl = document.getElementById('ctxEl');
+const userInput = document.getElementById('userInput');
+const sendBtn = document.getElementById('sendBtn');
+const systemEl = document.getElementById('systemEl');
+const modelEl = document.getElementById('modelEl');
+const tempEl = document.getElementById('tempEl');
+const maxTokEl = document.getElementById('maxTokEl');
+const chatEl = document.getElementById('chatEl');
+const aiStatus = document.getElementById('aiStatus');
+
+let messages = [];
+let busy = false;
+
+function addMessage(role, content, opts = {}) {
+  const id = opts.id || `m-${Date.now()}-${Math.floor(Math.random()*1000)}`;
+  const msgDiv = document.createElement('div');
+  msgDiv.className = `message ${role}`;
+  msgDiv.dataset.messageId = id;
+  const contentDiv = document.createElement('div');
+  contentDiv.className = 'message-content';
+  contentDiv.textContent = content;
+  msgDiv.appendChild(contentDiv);
+
+    // For assistant messages, add a small review UI with three predefined criteria
+  if (role === 'assistant') {
+    const reviewBar = document.createElement('div');
+    reviewBar.className = 'review-bar';
+    // Three criterion rows: factuality, clarity/appropriateness, moral/adherence
+    reviewBar.innerHTML = `
+      <div class="criteria">
+        <div class="criterion-row">
+          <div class="criterion-label">This answer is factual</div>
+          <div class="star-rating" role="radiogroup" aria-label="Factuality">
+            <button class="criterion-star" data-criterion="factuality" data-value="1" aria-label="1 star">★</button>
+            <button class="criterion-star" data-criterion="factuality" data-value="2" aria-label="2 stars">★</button>
+            <button class="criterion-star" data-criterion="factuality" data-value="3" aria-label="3 stars">★</button>
+            <button class="criterion-star" data-criterion="factuality" data-value="4" aria-label="4 stars">★</button>
+            <button class="criterion-star" data-criterion="factuality" data-value="5" aria-label="5 stars">★</button>
+          </div>
+        </div>
+        <div class="criterion-row">
+          <div class="criterion-label">This answer is clearly written and is appropriate for the prompt</div>
+          <div class="star-rating" role="radiogroup" aria-label="Clarity/appropriateness">
+            <button class="criterion-star" data-criterion="clarity" data-value="1" aria-label="1 star">★</button>
+            <button class="criterion-star" data-criterion="clarity" data-value="2" aria-label="2 stars">★</button>
+            <button class="criterion-star" data-criterion="clarity" data-value="3" aria-label="3 stars">★</button>
+            <button class="criterion-star" data-criterion="clarity" data-value="4" aria-label="4 stars">★</button>
+            <button class="criterion-star" data-criterion="clarity" data-value="5" aria-label="5 stars">★</button>
+          </div>
+        </div>
+        <div class="criterion-row">
+          <div class="criterion-label">This answer adheres to commonly held moral principles and neither commits nor advocates violation of laws</div>
+          <div class="star-rating" role="radiogroup" aria-label="Moral adherence">
+            <button class="criterion-star" data-criterion="ethics" data-value="1" aria-label="1 star">★</button>
+            <button class="criterion-star" data-criterion="ethics" data-value="2" aria-label="2 stars">★</button>
+            <button class="criterion-star" data-criterion="ethics" data-value="3" aria-label="3 stars">★</button>
+            <button class="criterion-star" data-criterion="ethics" data-value="4" aria-label="4 stars">★</button>
+            <button class="criterion-star" data-criterion="ethics" data-value="5" aria-label="5 stars">★</button>
+          </div>
+        </div>
+      </div>
+    <div class="review-extra" style="display:block;">
+  <div class="rating-summary" aria-live="polite" style="margin-bottom:8px; display:block;">Factuality: — • Clarity: — • Ethics: —</div>
+        <textarea name="comment" placeholder="Optional feedback" rows="2"></textarea>
+        <button class="submit-review" type="button">Submit</button>
+      </div>
+      <div class="suggestion-area">
+        <button class="suggest-edit-btn" type="button">Suggest an edit</button>
+        <div class="suggestion-box" style="display:none;">
+          <textarea name="suggested" rows="4"></textarea>
+          <div style="display:flex; gap:8px; margin-top:6px;">
+            <button class="submit-suggestion" type="button">Submit suggestion</button>
+            <button class="cancel-suggestion" type="button">Cancel</button>
+          </div>
+        </div>
+      </div>
+    `;
+    msgDiv.appendChild(reviewBar);
+  }
+
+  chatEl.appendChild(msgDiv);
+  chatEl.scrollTop = chatEl.scrollHeight;
+
+  // Wire up review interactions
+  if (role === 'assistant') {
+    // criterion-star covers all per-criterion star buttons
+    const stars = msgDiv.querySelectorAll('.criterion-star');
+    // store per-message ratings state
+    msgDiv._ratings = { factuality: null, clarity: null, ethics: null };
+    const extra = msgDiv.querySelector('.review-extra');
+    const commentBox = extra.querySelector('textarea[name="comment"]');
+    const submit = extra.querySelector('.submit-review');
+  const suggestBtn = msgDiv.querySelector('.suggest-edit-btn');
+  const suggestionBox = msgDiv.querySelector('.suggestion-box');
+  const suggestionTextarea = suggestionBox ? suggestionBox.querySelector('textarea[name="suggested"]') : null;
+  const suggestionSubmit = suggestionBox ? suggestionBox.querySelector('.submit-suggestion') : null;
+  const suggestionCancel = suggestionBox ? suggestionBox.querySelector('.cancel-suggestion') : null;
+
+    // Helper: close other open suggestion boxes and review extras to avoid blocking clicks
+    function closeOtherPopouts() {
+      document.querySelectorAll('.suggestion-box').forEach(sb => {
+        if (sb !== suggestionBox) sb.style.display = 'none';
+      });
+      document.querySelectorAll('.review-extra').forEach(re => {
+        if (re !== extra) re.style.display = 'none';
+      });
+    }
+
+    // Star click marks a selection for that criterion (toggleable); show full submit UI so users can rate all criteria before sending
+    stars.forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        const val = Number(btn.dataset.value || 5);
+        const criterion = btn.dataset.criterion;
+        if (e.shiftKey) {
+          // open extra comment box for richer feedback
+          extra.style.display = 'block';
+          commentBox.focus();
+          return;
+        }
+        // find siblings for this criterion
+        const siblings = Array.from(msgDiv.querySelectorAll(`.criterion-star[data-criterion="${criterion}"]`));
+        // determine if clicked star is already active (toggle)
+        const clicked = siblings.find(s => Number(s.dataset.value) === val);
+        const clickedActive = clicked && clicked.getAttribute('aria-pressed') === 'true';
+        if (clickedActive) {
+          // clear selection for this criterion
+          siblings.forEach(s => s.setAttribute('aria-pressed', 'false'));
+          msgDiv._ratings[criterion] = null;
+        } else {
+          // set selection up to clicked value
+          siblings.forEach(s => s.setAttribute('aria-pressed', 'false'));
+          siblings.forEach(s => {
+            const sv = Number(s.dataset.value || 0);
+            if (sv <= val) s.setAttribute('aria-pressed', 'true');
+          });
+          msgDiv._ratings[criterion] = val;
+        }
+
+        // update rating summary (live)
+        const summaryEl = msgDiv.querySelector('.rating-summary');
+        if (summaryEl) {
+          const labels = { factuality: 'Factuality', clarity: 'Clarity', ethics: 'Ethics' };
+          const parts = [];
+          for (const k of ['factuality','clarity','ethics']) {
+            const v = msgDiv._ratings[k];
+            parts.push(`${labels[k]}: ${typeof v === 'number' ? v : '—'}`);
+          }
+          summaryEl.textContent = parts.join(' • ');
+          summaryEl.style.display = 'block';
+        }
+
+        // reveal the full review form so user can submit aggregated ratings and optional comment
+        closeOtherPopouts();
+        extra.style.display = 'block';
+        commentBox.focus();
+      });
+    });
+
+    // Full submit with comment
+    submit.addEventListener('click', async () => {
+      submit.disabled = true;
+      const comment = commentBox.value;
+      // aggregate ratings, default neutral 3 for missing
+      const vals = [];
+      for (const k of ['factuality','clarity','ethics']) {
+        const v = msgDiv._ratings[k];
+        vals.push(typeof v === 'number' ? v : 3);
+      }
+      const agg = Math.round((vals.reduce((a,b)=>a+b,0)/vals.length)*100)/100;
+      try {
+        await submitReview(id, agg, comment, content, msgDiv._ratings);
+        submit.textContent = 'Thanks';
+        showToast('Thanks for the feedback');
+        // disable stars for criteria that now have values; leave others enabled
+        for (const k of ['factuality','clarity','ethics']) {
+          const v = msgDiv._ratings[k];
+          if (typeof v === 'number') {
+            const ss = msgDiv.querySelectorAll(`.criterion-star[data-criterion="${k}"]`);
+            ss.forEach(x => x.disabled = true);
+          }
+        }
+      } catch (err) {
+        console.error('Review submit failed', err);
+        submit.textContent = 'Retry';
+        submit.disabled = false;
+        showToast('Failed to submit feedback');
+      }
+    });
+
+    // Suggestion editor handlers
+    if (suggestBtn && suggestionBox && suggestionTextarea && suggestionSubmit) {
+      suggestBtn.addEventListener('click', () => {
+        // prefill with assistant content for convenient editing
+        suggestionTextarea.value = content;
+        // close other popouts first so this one is interactive
+        closeOtherPopouts();
+        suggestionBox.style.display = suggestionBox.style.display === 'none' ? 'block' : 'none';
+        if (suggestionBox.style.display === 'block') suggestionTextarea.focus();
+      });
+
+      suggestionCancel.addEventListener('click', () => {
+        suggestionBox.style.display = 'none';
+      });
+
+      suggestionSubmit.addEventListener('click', async () => {
+        suggestionSubmit.disabled = true;
+        const suggested = suggestionTextarea.value.trim();
+        if (!suggested) {
+          showToast('Please enter a suggested revision');
+          suggestionSubmit.disabled = false;
+          return;
+        }
+        const payload = {
+          messageId: id,
+          assistantText: content,
+          suggestedText: suggested,
+          comment: commentBox.value || '',
+          timestamp: new Date().toISOString()
+        };
+        try {
+          const res = await fetch('http://localhost:3000/suggestion', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          if (!res.ok) throw new Error('Failed to submit suggestion');
+          suggestionSubmit.textContent = 'Thanks';
+          showToast('Suggestion submitted');
+          suggestionBox.style.display = 'none';
+        } catch (err) {
+          console.error('Suggestion submit failed', err);
+          showToast('Failed to submit suggestion');
+          suggestionSubmit.disabled = false;
+          suggestionSubmit.textContent = 'Submit suggestion';
+        }
+      });
+    }
+  }
+  return id;
+}
+
+async function submitReview(messageId, rating, comment, assistantText, criteria) {
+  const payload = {
+    messageId,
+    rating,
+    comment,
+    assistantText,
+    criteria: criteria || null,
+    timestamp: new Date().toISOString()
+  };
+  const res = await fetch(REVIEW_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  if (!res.ok) throw new Error('Failed to submit review');
+  return res.json();
+}
+
+function showToast(msg, ms = 2500) {
+  const t = document.getElementById('toast');
+  if (!t) return;
+  t.textContent = msg;
+  t.classList.remove('hidden');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.add('hidden'), ms);
+}
+
+async function pingBackend() {
+  try {
+    const res = await fetch(BACKEND_URL, { method: 'OPTIONS' });
+    const dot = document.getElementById('backendDot');
+    if (res.ok) {
+      dot.classList.remove('backend-unknown','backend-offline');
+      dot.classList.add('backend-online');
+      statusEl.textContent = 'online';
+    } else {
+      dot.classList.remove('backend-unknown','backend-online');
+      dot.classList.add('backend-offline');
+      statusEl.textContent = 'unreachable';
+    }
+  } catch (error) { 
+    const dot = document.getElementById('backendDot');
+    dot.classList.remove('backend-unknown','backend-online');
+    dot.classList.add('backend-offline');
+    statusEl.textContent = 'unreachable';
+    console.error('Backend ping failed:', error);
+  }
+}
+
+function assemblePrompt(userText) {
+  const ctx = ctxEl.value?.trim();
+  return ctx ? `Context: ${ctx}\n\nUser: ${userText}` : userText;
+}
+
+async function send() {
+  if (busy) return;
+  const text = userInput.value.trim();
+  if (!text) return;
+  busy = true; 
+  sendBtn.disabled = true;
+
+  const sys = systemEl.value.trim();
+  const model = modelEl.value;
+  const temperature = Number(tempEl.value || 0.7);
+  const max_tokens = Number(maxTokEl.value || 512);
+
+  const userMsg = assemblePrompt(text);
+  
+  // Build messages array for this request with current system message
+  const requestMessages = [
+    { role: 'system', content: sys },
+    ...messages.filter(m => m.role !== 'system'), // Exclude old system messages
+    { role: 'user', content: userMsg }
+  ];
+  
+  messages.push({ role: 'user', content: userMsg });
+
+  addMessage('user', text);
+  userInput.value = '';
+
+  try {
+    // show AI preparing status
+    aiStatus.classList.remove('hidden');
+    const res = await fetch(BACKEND_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model, temperature, max_tokens, messages: requestMessages })
+    });
+    if (!res.ok) throw new Error('Request failed');
+
+    // Stream or JSON
+    const ct = res.headers.get('content-type') || '';
+  if (ct.includes('text/event-stream')) {
+      let botText = '';
+      addMessage('assistant', '');
+      const last = chatEl.lastChild;
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const chunk = decoder.decode(value, { stream: true });
+        for (const line of chunk.split('\n')) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6).trim();
+            if (data === '[DONE]') break;
+            try { 
+              const j = JSON.parse(data); 
+              botText += j.delta || ''; 
+              last.querySelector('.message-content').textContent = botText; 
+            } catch (error) {
+              console.error('Failed to parse SSE data:', error);
+            }
+          }
+        }
+      }
+      messages.push({ role: 'assistant', content: botText });
+    } else {
+      const json = await res.json();
+      const reply = json.reply || '(no reply)';
+      addMessage('assistant', reply);
+      messages.push({ role: 'assistant', content: reply });
+    }
+  } catch (e) {
+    addMessage('assistant', 'Error contacting backend. Check console / endpoint.');
+    console.error(e);
+  } finally {
+  busy = false; 
+  sendBtn.disabled = false;
+  // hide AI preparing status
+  aiStatus.classList.add('hidden');
+  }
+}
+
+userInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) { 
+    e.preventDefault(); 
+    send(); 
+  }
+});
+
+sendBtn.addEventListener('click', send);
+
+// Auto-resize textarea
+userInput.addEventListener('input', function() {
+  this.style.height = 'auto';
+  this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+});
+
+pingBackend();
+</script>
+</body>
+</html>

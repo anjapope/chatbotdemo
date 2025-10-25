@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Instructions — Megalogoi</title>
+  <link rel="stylesheet" href="theme.css">
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    .container{max-width:900px;margin:40px auto;padding:18px;background:rgba(255,255,255,0.02);border-radius:8px}
+    h1{margin-bottom:12px}
+    ol{margin-left:18px}
+  </style>
+</head>
+<body>
+  <nav class="topnav">
+    <a class="brand" href="index.html"><span class="dot" aria-hidden></span> Megalogoi Training Chatbot</a>
+    <div class="nav-links">
+      <a href="index.html">Home</a>
+      <a href="chat.html">Chat</a>
+      <a href="instructions.html" class="primary">Instructions</a>
+      <a href="peer_review.html">Peer Review</a>
+      <a href="README.md">README</a>
+    </div>
+  </nav>
+  <div class="container">
+    <h1>How to use this demo</h1>
+    <p>This site demonstrates a small workflow for collecting peer critiques and suggestions for model responses.</p>
+    <h2>Chat</h2>
+    <ol>
+      <li>Open <strong>Chat</strong> and ask the assistant a question.</li>
+      <li>After the assistant replies, use the rating UI under the assistant message to rate factuality, clarity, and ethics.</li>
+      <li>Optionally suggest a revision by clicking "Suggest an edit" on the assistant message.</li>
+    </ol>
+    <h2>Peer Review</h2>
+    <ol>
+      <li>Open <strong>Peer Review</strong> to see a list of example prompts and multiple candidate responses.</li>
+      <li>Click an item to view responses. Use <em>Select</em> to indicate which response you are critiquing.</li>
+      <li>Write a critique in the box and click <em>Submit critique</em>.</li>
+      <li>Teachers can collect rankings and reviews via the admin endpoints (see README).</li>
+    </ol>
+    <h2>Notes</h2>
+    <p>The demo stores data in local JSON files and runs a tiny backend on port 3000. If you stop the backend, submissions will fail.</p>
+  </div>
+</body>
+</html>

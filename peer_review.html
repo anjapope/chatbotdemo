@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Peer Review — Megalogoi</title>
+  <link rel="stylesheet" href="theme.css">
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    .peer-grid{display:grid;grid-template-columns:1fr 420px;gap:18px;max-width:1100px;margin:36px auto}
+    .dataset-list{background:rgba(255,255,255,0.02);padding:12px;border-radius:8px}
+    .example{padding:10px;border-bottom:1px solid rgba(255,255,255,0.03)}
+    .example:last-child{border-bottom:none}
+    .controls{display:flex;gap:8px;margin-top:8px}
+    .hidden{display:none}
+    .loading{opacity:.6;font-style:italic}
+  .example.selected{background:rgba(124,204,240,0.06);border-left:4px solid rgba(124,204,240,0.9);}
+  .select-btn{margin-left:6px;padding:6px 10px;border-radius:6px;background:transparent;border:1px solid rgba(255,255,255,0.06);color:inherit;cursor:pointer}
+  .select-btn:focus{outline:2px solid rgba(124,204,240,0.4)}
+  </style>
+</head>
+<body>
+  <nav class="topnav">
+    <a class="brand" href="index.html"><span class="dot" aria-hidden></span> Megalogoi Training Chatbot</a>
+    <div class="nav-links">
+  <a href="index.html">Home</a>
+  <a href="chat.html">Chat</a>
+  <a href="compare.html">Compare</a>
+  <a href="instructions.html">Instructions</a>
+  <a href="peer_review.html" class="primary">Peer Review</a>
+  <a href="README.md">README</a>
+    </div>
+  </nav>
+
+  <main class="peer-grid">
+    <section class="dataset-list" id="dataset">
+      <h2>Exercises</h2>
+      <div id="list">Loading dataset…</div>
+    </section>
+    <aside id="panel">
+      <h3>Selected item</h3>
+      <div id="selected" class="loading">No item selected</div>
+      <div style="margin-top:12px;"><button id="refreshBtn">Refresh dataset</button></div>
+    </aside>
+  </main>
+
+  <script>
+    console.log('[peer_review] script loaded');
+    const API = 'http://localhost:3000';
+    async function fetchDataset(){
+      const el = document.getElementById('list');
+      el.innerHTML = 'Loading…';
+      try{
+        const res = await fetch(API + '/reviews');
+        if(!res.ok) throw new Error('Reviews fetch failed');
+        const data = await res.json();
+        if(!Array.isArray(data)) throw new Error('Bad reviews');
+        // only show user-submitted reviews (those with assistantText, comment, or rating)
+        let reviews = data.filter(r => r && (r.assistantText || r.comment || r.rating !== undefined));
+        // Sort so the most recent submissions appear first (newest on top)
+        try{
+          reviews.sort((a,b)=>{
+            const ta = a && a.timestamp ? Date.parse(a.timestamp) : 0;
+            const tb = b && b.timestamp ? Date.parse(b.timestamp) : 0;
+            return (tb || 0) - (ta || 0);
+          });
+        }catch(e){ /* ignore sort errors and leave original order */ }
+        el.innerHTML = '';
+        if (reviews.length === 0) {
+          el.innerHTML = '<div class="loading">No user reviews found</div>';
+          return;
+        }
+          reviews.forEach((r, idx) => {
+            const div = document.createElement('div');
+            div.className = 'example';
+            const title = escapeHtml(r.messageId || ('review-' + idx));
+            const body = escapeHtml((r.assistantText || '').slice(0, 300));
+            const small = escapeHtml(r.comment || '');
+            const meta = [];
+            if (r.rating !== undefined && r.rating !== null) meta.push('Rating: ' + String(r.rating));
+            if (r.timestamp) meta.push('At: ' + String(r.timestamp));
+            // include a Review button for an explicit selection action
+            div.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center"><strong>${title}</strong><button class="select-btn" aria-label="Select ${title} for review">Review</button></div><div style="margin-top:6px" class=\"resp\">${body}</div>${small ? `<div class=\"small-comment\">${small}</div>` : ''}<div style=\"margin-top:6px;color:var(--muted)\">${escapeHtml(meta.join(' • '))}</div>`;
+            const item = Object.assign({}, r);
+            // wire the select button only (so clicks on the body don't accidentally select)
+            const btn = div.querySelector('.select-btn');
+            if(btn){
+              btn.addEventListener('click', (ev)=>{
+                ev.stopPropagation();
+                // clear previous selection highlight
+                const prev = document.querySelectorAll('.example.selected');
+                prev.forEach(p=>p.classList.remove('selected'));
+                div.classList.add('selected');
+                selectItem(item);
+              });
+            }
+            el.appendChild(div);
+          });
+      }catch(err){
+        console.error(err);
+        el.innerHTML = '<div style="color:var(--muted)">Failed to load reviews</div>';
+      }
+    }
+    function selectItem(it){
+      const sel = document.getElementById('selected');
+      sel.classList.remove('loading');
+      sel.dataset.reviewId = it.messageId || it.id || '';
+      const parts = [];
+      parts.push(`<h4>Review: ${escapeHtml(sel.dataset.reviewId)}</h4>`);
+      if (it.assistantText) parts.push(`<div style="margin-top:8px;padding:10px;background:rgba(255,255,255,0.02);border-radius:6px"><strong>Assistant response</strong><pre style="white-space:pre-wrap;margin:6px 0">${escapeHtml(it.assistantText)}</pre></div>`);
+        // editable comment (pre-filled) and sliders for criteria
+        parts.push(`<div style="margin-top:8px"><strong>Reviewer comment (editable)</strong><div style="margin-top:6px"><textarea id="panelComment" rows="3" style="width:100%">${escapeHtml(it.comment||'')}</textarea></div></div>`);
+        // show existing rating if present
+        if (it.rating !== undefined && it.rating !== null) parts.push(`<div style="margin-top:8px;color:var(--muted)">Previous Rating: ${escapeHtml(String(it.rating))}</div>`);
+        const c = it.criteria || {};
+        const fact = c.factuality || 3;
+        // note: we store 'appropriateness' as 'ethics' in the saved criteria to match other records
+        const app = (c.ethics !== undefined && c.ethics !== null) ? c.ethics : 3;
+        const clar = c.clarity || 3;
+        parts.push(`<div style="margin-top:12px"><strong>Rate this response</strong>
+          <div style="margin-top:6px">
+            <div>Factuality <span id="panel_fact_val">${fact}</span><br><input id="panel_fact" type="range" min="1" max="5" step="1" value="${fact}" style="width:100%"></div>
+            <div style="margin-top:6px">Appropriateness <span id="panel_app_val">${app}</span><br><input id="panel_app" type="range" min="1" max="5" step="1" value="${app}" style="width:100%"></div>
+            <div style="margin-top:6px">Clarity <span id="panel_clar_val">${clar}</span><br><input id="panel_clar" type="range" min="1" max="5" step="1" value="${clar}" style="width:100%"></div>
+          </div>
+          <div class="controls" style="margin-top:10px"><button id="saveRatingBtn">Save rating</button><span id="saveStatus" style="color:var(--muted);margin-left:8px;display:none">Saved</span></div>
+        </div>`);
+      if (it.timestamp) parts.push(`<div style="margin-top:8px;color:var(--muted)">Submitted: ${escapeHtml(it.timestamp)}</div>`);
+      sel.innerHTML = parts.join('');
+        // wire up slider UI to show values and save button
+        const pf = document.getElementById('panel_fact');
+        const pa = document.getElementById('panel_app');
+        const pc = document.getElementById('panel_clar');
+        const pfv = document.getElementById('panel_fact_val');
+        const pav = document.getElementById('panel_app_val');
+        const pcv = document.getElementById('panel_clar_val');
+        if(pf){ pf.addEventListener('input', ()=>pfv.textContent = pf.value); }
+        if(pa){ pa.addEventListener('input', ()=>pav.textContent = pa.value); }
+        if(pc){ pc.addEventListener('input', ()=>pcv.textContent = pc.value); }
+        const saveBtn = document.getElementById('saveRatingBtn');
+        if(saveBtn){ saveBtn.addEventListener('click', ()=>saveReviewFromPanel(sel.dataset.reviewId, it)); }
+    }
+
+      async function saveReviewFromPanel(messageId, original){
+        if(!messageId) return alert('No messageId');
+        const commentEl = document.getElementById('panelComment');
+        const pf = document.getElementById('panel_fact');
+        const pa = document.getElementById('panel_app');
+        const pc = document.getElementById('panel_clar');
+        const statusEl = document.getElementById('saveStatus');
+        const comment = commentEl ? commentEl.value : (original.comment||'');
+        const factuality = pf ? parseInt(pf.value||3) : 3;
+        const appropriateness = pa ? parseInt(pa.value||3) : 3;
+        const clarity = pc ? parseInt(pc.value||3) : 3;
+        // compute mean rating
+        const mean = Math.round(((factuality + appropriateness + clarity)/3.0) * 100)/100.0;
+        const review = {
+          messageId: messageId,
+          assistantText: original.assistantText || '',
+          comment: comment,
+          criteria: { factuality: factuality, clarity: clarity, ethics: appropriateness },
+          rating: mean,
+          timestamp: (new Date()).toISOString()
+        };
+        try{
+          const res = await fetch(API + '/review', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(review) });
+          if(!res.ok) throw new Error('save failed');
+          statusEl.style.display = 'inline'; setTimeout(()=>statusEl.style.display='none',1500);
+          // refresh dataset list so updated rating shows
+          await fetchDataset();
+        }catch(err){ console.error(err); alert('Failed to save review'); }
+      }
+    async function submitRank(id,rank){
+      try{
+        const res = await fetch(API + '/peer/rank', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({itemId:id,rank})});
+        if(!res.ok) throw new Error('rank failed');
+        alert('Thanks — rank submitted');
+      }catch(err){
+        console.error(err);alert('Failed to submit rank');
+      }
+    }
+    function escapeHtml(s){return (s||'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');}
+    document.getElementById('refreshBtn').addEventListener('click', fetchDataset);
+    fetchDataset();
+  </script>
+</body>
+</html>

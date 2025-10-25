@@ -1,0 +1,52 @@
+[
+  {
+    "id": "item-1",
+    "question": "Explain why the sky is blue.",
+    "assistantResponses": [
+      {
+        "text": "The sky is blue because of Rayleigh scattering: shorter blue wavelengths scatter more in the atmosphere.",
+        "reviews": [
+          {"author": "alice","rating": 5,"comment": "Concise and correct."},
+          {"author": "bob","rating": 3,"comment": "Correct but a bit terse; could mention molecules."}
+        ]
+      },
+      {
+        "text": "Because the sky reflects the ocean and is blue. People think sunlight is blue.",
+        "reviews": [
+          {"author": "charlie","rating": 1,"comment": "Incorrect explanation."}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "item-2",
+    "question": "What's the best way to learn a new programming language?",
+    "assistantResponses": [
+      {
+        "text": "Start with tutorials, build small projects, read docs, and practice daily.",
+        "reviews": [
+          {"author": "dana","rating": 4,"comment": "Good practical advice."},
+          {"author": "eve","rating": 2,"comment": "Vague; needs concrete examples."}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "item-3",
+    "question": "Summarize photosynthesis in one sentence.",
+    "assistantResponses": [
+      {
+        "text": "Photosynthesis is the process by which plants convert sunlight, CO2 and water into glucose and oxygen.",
+        "reviews": [
+          {"author": "frank","rating": 5,"comment": "Accurate and succinct."}
+        ]
+      },
+      {
+        "text": "Plants use light to make food sometimes and release air.",
+        "reviews": [
+          {"author": "gina","rating": 2,"comment": "Barely accurate and informal."}
+        ]
+      }
+    ]
+  }
+]
