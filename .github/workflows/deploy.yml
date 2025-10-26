@@ -20,17 +20,39 @@ jobs:
         run: |
           mkdir -p ~/.ssh
           ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
-
-      - name: Sync project to server (exclude .env)
+      - name: Test SSH connectivity
         run: |
-          rsync -avz --delete --exclude='.git' --exclude='.env' ./ ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.SERVER_TARGET }}
+          echo "Testing SSH connectivity to ${{ secrets.SERVER_HOST }} as ${{ secrets.SERVER_USER }}"
+          ssh -o BatchMode=yes -o ConnectTimeout=10 ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} 'echo SSH_OK' || (echo 'SSH test failed' && exit 1)
 
-    - name: Write .env on server and restart backend
+      - name: Sync project to server (exclude .env) with retries
+        run: |
+          set -e
+          RSYNC_CMD="rsync -e \"ssh -v -o StrictHostKeyChecking=yes\" -avz --delete --exclude='.git' --exclude='.env' ./ ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.SERVER_TARGET }}"
+          echo "Running: $RSYNC_CMD"
+          attempts=0
+          until [ $attempts -ge 3 ]
+          do
+            attempts=$((attempts+1))
+            echo "rsync attempt $attempts"
+            if eval $RSYNC_CMD; then
+              echo "rsync succeeded"
+              break
+            else
+              echo "rsync failed (attempt $attempts)"
+              sleep 3
+            fi
+          done
+          if [ $attempts -ge 3 ]; then
+            echo "rsync failed after $attempts attempts" && exit 1
+          fi
+
+      - name: Write .env on server and restart backend
         env:
           TARGET: ${{ secrets.SERVER_TARGET }}
         run: |
           # Write .env on the remote server using the OPENAI_API_KEY secret
-      ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} <<EOF
+          ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} <<'EOF'
           cat > $TARGET/.env <<'ENV'
           OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
           OPENAI_MODEL=gpt-4o
