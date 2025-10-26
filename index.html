@@ -2,74 +2,32 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Chatbot Demo</title>
-  <style>
-    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:0;padding:0;display:flex;flex-direction:column;min-height:100vh}
-    header{background:#111;color:#fff;padding:12px 16px}
-    main{flex:1;padding:20px;max-width:900px;margin:0 auto}
-    .chat{border:1px solid #ddd;border-radius:8px;padding:12px;min-height:300px;background:#fafafa;overflow:auto}
-    .message{margin:8px 0;padding:8px;border-radius:6px;max-width:80%}
-    .user{background:#0b84ff;color:#fff;margin-left:auto}
-    .bot{background:#eee;color:#111;margin-right:auto}
-    form{display:flex;gap:8px;margin-top:12px}
-    input[type=text]{flex:1;padding:10px;border:1px solid #ccc;border-radius:6px}
-    button{padding:10px 14px;border:none;background:#0b84ff;color:white;border-radius:6px;cursor:pointer}
-    footer{font-size:13px;color:#666;padding:12px 16px;text-align:center}
-    .meta{margin-top:8px;color:#666;font-size:13px}
-  </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Chatbot Demo — Home</title>
+  <link rel="stylesheet" href="theme.css">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="home.css">
 </head>
 <body>
-  <header>
-    <strong>Chatbot Demo</strong>
-  </header>
-  <main>
-    <p>This is a simple static demo page for the chatbotdemo repository. You can extend this to embed a real chatbot backend or a client-side AI SDK.</p>
-
-    <div class="chat" id="chat" aria-live="polite"></div>
-
-    <form id="chatForm">
-      <input id="prompt" type="text" autocomplete="off" placeholder="Type a message and press Enter" />
-      <button type="submit">Send</button>
-    </form>
-
-    <div class="meta">Repository: <a href="https://github.com/anjapope/chatbotdemo">anjapope/chatbotdemo</a></div>
-  </main>
-
-  <footer>
-    <small>Once this file is published to GitHub Pages the site will be available at https://anjapope.github.io/chatbotdemo/</small>
-  </footer>
-
-  <script>
-    const chat = document.getElementById('chat');
-    const form = document.getElementById('chatForm');
-    const prompt = document.getElementById('prompt');
-
-    function appendMessage(text, cls){
-      const el = document.createElement('div');
-      el.className = 'message ' + cls;
-      el.textContent = text;
-      chat.appendChild(el);
-      chat.scrollTop = chat.scrollHeight;
-    }
-
-    // Simple echo-bot behavior for demo purposes
-    form.addEventListener('submit', (e) =>{
-      e.preventDefault();
-      const value = prompt.value.trim();
-      if(!value) return;
-      appendMessage(value, 'user');
-      prompt.value = '';
-      appendMessage('Thinking...', 'bot');
-
-      // simulate async reply
-      setTimeout(()=>{
-        // remove the 'Thinking...' placeholder
-        const thinking = Array.from(chat.querySelectorAll('.message.bot')).find(m=>m.textContent==='Thinking...');
-        if(thinking) thinking.remove();
-        appendMessage('Echo: ' + value, 'bot');
-      }, 700);
-    });
-  </script>
+  <nav class="topnav">
+    <a class="brand" href="index.html"><span class="dot" aria-hidden></span> Megalogoi Training Chatbot</a>
+    <div class="nav-links">
+      <a href="index.html">Home</a>
+  <a href="chat.html" class="primary">Chat</a>
+  <a href="compare.html">Compare</a>
+  <a href="instructions.html">Instructions</a>
+  <a href="peer_review.html">Peer Review</a>
+  <a href="README.md">README</a>
+    </div>
+  </nav>
+  <div class="card">
+    <h1>Megalogoi Training Chatbot</h1>
+    <p>Welcome to Megalogoi, where the future speaks our language.</p>
+    <blockquote style="margin-top:12px; margin-bottom:12px; font-style:italic; color:rgba(255,255,255,0.9);">"Remember: We're not just building the future, we're starting the last conversation the hum[...] 
+    <div class="links">
+  <a class="button" href="chat.html">Open Chatbot</a>
+      <a class="ghost" href="README.md">View README</a>
+    </div>
+  </div>
 </body>
 </html>
