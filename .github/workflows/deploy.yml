@@ -16,16 +16,21 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.SERVER_SSH_KEY }}
 
+      - name: Add server to known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+
       - name: Sync project to server (exclude .env)
         run: |
           rsync -avz --delete --exclude='.git' --exclude='.env' ./ ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.SERVER_TARGET }}
 
-      - name: Write .env on server and restart backend
+    - name: Write .env on server and restart backend
         env:
           TARGET: ${{ secrets.SERVER_TARGET }}
         run: |
           # Write .env on the remote server using the OPENAI_API_KEY secret
-          ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} <<EOF
+      ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} <<EOF
           cat > $TARGET/.env <<'ENV'
           OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
           OPENAI_MODEL=gpt-4o
