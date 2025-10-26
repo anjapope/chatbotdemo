@@ -21,14 +21,24 @@ jobs:
           mkdir -p ~/.ssh
           ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
       - name: Test SSH connectivity
+        env:
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
         run: |
-          echo "Testing SSH connectivity to ${{ secrets.SERVER_HOST }} as ${{ secrets.SERVER_USER }}"
-          ssh -o BatchMode=yes -o ConnectTimeout=10 ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} 'echo SSH_OK' || (echo 'SSH test failed' && exit 1)
+          # Default to 'ubuntu' if SERVER_USER is not set in secrets
+          echo "Testing SSH connectivity to ${SERVER_HOST} as ${SERVER_USER:-ubuntu}"
+          ssh -o BatchMode=yes -o ConnectTimeout=10 ${SERVER_USER:-ubuntu}@${SERVER_HOST} 'echo SSH_OK' || (echo 'SSH test failed' && exit 1)
 
       - name: Sync project to server (exclude .env) with retries
+        env:
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_TARGET: ${{ secrets.SERVER_TARGET }}
         run: |
           set -e
-          RSYNC_CMD="rsync -e \"ssh -v -o StrictHostKeyChecking=yes\" -avz --delete --exclude='.git' --exclude='.env' ./ ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.SERVER_TARGET }}"
+          # Default to 'ubuntu' if SERVER_USER is not set
+          USERHOST="${SERVER_USER:-ubuntu}@${SERVER_HOST}"
+          RSYNC_CMD="rsync -e \"ssh -v -o StrictHostKeyChecking=yes\" -avz --delete --exclude='.git' --exclude='.env' ./ ${USERHOST}:${SERVER_TARGET}"
           echo "Running: $RSYNC_CMD"
           attempts=0
           until [ $attempts -ge 3 ]
@@ -49,10 +59,14 @@ jobs:
 
       - name: Write .env on server and restart backend
         env:
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
           TARGET: ${{ secrets.SERVER_TARGET }}
         run: |
+          # Default to 'ubuntu' if SERVER_USER not provided
+          USERHOST="${SERVER_USER:-ubuntu}@${SERVER_HOST}"
           # Write .env on the remote server using the OPENAI_API_KEY secret
-          ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} <<'EOF'
+          ssh ${USERHOST} <<'EOF'
           cat > $TARGET/.env <<'ENV'
           OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
           OPENAI_MODEL=gpt-4o
