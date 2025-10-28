@@ -29,57 +29,86 @@ jobs:
           echo "Testing SSH connectivity to ${SERVER_HOST} as ${SERVER_USER:-ubuntu}"
           SERVER_SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
           # Write the private key to a temp file and use it directly to avoid agent issues
-          mkdir -p ~/.ssh
-          cat > /tmp/deploy_key <<'KEY'
-${{ secrets.SERVER_SSH_KEY }}
-KEY
-          chmod 600 /tmp/deploy_key
-          # Use verbose output to surface auth debug
-          ssh -i /tmp/deploy_key -v -o BatchMode=yes -o ConnectTimeout=10 ${SERVER_USER:-ubuntu}@${SERVER_HOST} 'echo SSH_OK' || (echo 'SSH test failed' && rm -f /tmp/deploy_key && exit 1)
-          rm -f /tmp/deploy_key
+          name: Deploy to server
 
-      - name: Sync project to server (exclude .env) with retries
-        env:
-          SERVER_USER: ${{ secrets.SERVER_USER }}
-          SERVER_HOST: ${{ secrets.SERVER_HOST }}
-          SERVER_TARGET: ${{ secrets.SERVER_TARGET }}
-        run: |
-          set -e
-          # Default to 'ubuntu' if SERVER_USER is not set
-          USERHOST="${SERVER_USER:-ubuntu}@${SERVER_HOST}"
-          # Prevent rsync from removing the remote user's SSH keys or other home dotfiles
-          RSYNC_CMD="rsync -e \"ssh -v -o StrictHostKeyChecking=yes\" -avz --delete --exclude='.git' --exclude='.env' --exclude='.ssh' ./ ${USERHOST}:${SERVER_TARGET}"
-          echo "Running: $RSYNC_CMD"
-          attempts=0
-          until [ $attempts -ge 3 ]
-          do
-            attempts=$((attempts+1))
-            echo "rsync attempt $attempts"
-            if eval $RSYNC_CMD; then
-              echo "rsync succeeded"
-              break
-            else
-              echo "rsync failed (attempt $attempts)"
-              sleep 3
-            fi
-          done
-          if [ $attempts -ge 3 ]; then
-            echo "rsync failed after $attempts attempts" && exit 1
-          fi
+          on:
+            push:
+              branches: [ main ]
 
-      - name: Write .env on server and restart backend
-        env:
-          TARGET: ${{ secrets.SERVER_TARGET }}
-        run: |
-          # Write .env on the remote server using the OPENAI_API_KEY secret
-          # Use verbose output when executing remote commands to get clearer failure logs
-          SERVER_SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
-          # Write the private key to a temp file and use it for the remote heredoc
-          cat > /tmp/deploy_key <<'KEY'
-${{ secrets.SERVER_SSH_KEY }}
-KEY
-          chmod 600 /tmp/deploy_key
-          ssh -i /tmp/deploy_key -v -o StrictHostKeyChecking=yes ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} <<'EOF'
+          jobs:
+            deploy:
+              runs-on: ubuntu-latest
+              steps:
+                - name: Checkout
+                  uses: actions/checkout@v4
+
+                - name: Start SSH agent
+                  uses: webfactory/ssh-agent@v0.7.0
+                  with:
+                    ssh-private-key: ${{ secrets.SERVER_SSH_KEY }}
+
+                - name: Add server to known_hosts
+                  run: |
+                    mkdir -p ~/.ssh
+                    ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+                - name: Test SSH connectivity
+                  env:
+                    SERVER_USER: ${{ secrets.SERVER_USER }}
+                    SERVER_HOST: ${{ secrets.SERVER_HOST }}
+                  run: |
+                    # Default to 'ubuntu' if SERVER_USER is not set in secrets
+                    echo "Testing SSH connectivity to ${SERVER_HOST} as ${SERVER_USER:-ubuntu}"
+                    # Write the private key to a temp file and use it directly to avoid agent issues
+                    mkdir -p ~/.ssh
+                    cat > /tmp/deploy_key <<'KEY'
+          ${{ secrets.SERVER_SSH_KEY }}
+          KEY
+                    chmod 600 /tmp/deploy_key
+                    # Use verbose output to surface auth debug
+                    ssh -i /tmp/deploy_key -v -o BatchMode=yes -o ConnectTimeout=10 ${SERVER_USER:-ubuntu}@${SERVER_HOST} 'echo SSH_OK' || (echo 'SSH test failed' && rm -f /tmp/deploy_key && exit 1)
+                    rm -f /tmp/deploy_key
+
+                - name: Sync project to server (exclude .env) with retries
+                  env:
+                    SERVER_USER: ${{ secrets.SERVER_USER }}
+                    SERVER_HOST: ${{ secrets.SERVER_HOST }}
+                    SERVER_TARGET: ${{ secrets.SERVER_TARGET }}
+                  run: |
+                    set -e
+                    # Default to 'ubuntu' if SERVER_USER is not set
+                    USERHOST="${SERVER_USER:-ubuntu}@${SERVER_HOST}"
+                    # Prevent rsync from removing the remote user's SSH keys or other home dotfiles
+                    RSYNC_CMD="rsync -e \"ssh -v -o StrictHostKeyChecking=yes\" -avz --delete --exclude='.git' --exclude='.env' --exclude='.ssh' ./ ${USERHOST}:${SERVER_TARGET}"
+                    echo "Running: $RSYNC_CMD"
+                    attempts=0
+                    until [ $attempts -ge 3 ]
+                    do
+                      attempts=$((attempts+1))
+                      echo "rsync attempt $attempts"
+                      if eval $RSYNC_CMD; then
+                        echo "rsync succeeded"
+                        break
+                      else
+                        echo "rsync failed (attempt $attempts)"
+                        sleep 3
+                      fi
+                    done
+                    if [ $attempts -ge 3 ]; then
+                      echo "rsync failed after $attempts attempts" && exit 1
+                    fi
+
+                - name: Write .env on server and restart backend
+                  env:
+                    TARGET: ${{ secrets.SERVER_TARGET }}
+                  run: |
+                    # Write .env on the remote server using the OPENAI_API_KEY secret
+                    # Use verbose output when executing remote commands to get clearer failure logs
+                    # Write the private key to a temp file and use it for the remote heredoc
+                    cat > /tmp/deploy_key <<'KEY'
+          ${{ secrets.SERVER_SSH_KEY }}
+          KEY
+                    chmod 600 /tmp/deploy_key
+                    ssh -i /tmp/deploy_key -v -o StrictHostKeyChecking=yes ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} <<'EOF'
           cat > $TARGET/.env <<'ENV'
           OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
           OPENAI_MODEL=gpt-4o
@@ -90,8 +119,8 @@ KEY
           pkill -f server_py.py || true
           nohup python3 $TARGET/server_py.py > $TARGET/server.log 2>&1 &
           EOF
-          rm -f /tmp/deploy_key
-          ssh -v -o StrictHostKeyChecking=yes ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} <<'EOF'
+                    rm -f /tmp/deploy_key
+                    ssh -v -o StrictHostKeyChecking=yes ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} <<'EOF'
           cat > $TARGET/.env <<'ENV'
           OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
           OPENAI_MODEL=gpt-4o
