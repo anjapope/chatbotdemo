@@ -38,7 +38,8 @@ jobs:
           set -e
           # Default to 'ubuntu' if SERVER_USER is not set
           USERHOST="${SERVER_USER:-ubuntu}@${SERVER_HOST}"
-          RSYNC_CMD="rsync -e \"ssh -v -o StrictHostKeyChecking=yes\" -avz --delete --exclude='.git' --exclude='.env' ./ ${USERHOST}:${SERVER_TARGET}"
+          # Prevent rsync from removing the remote user's SSH keys or other home dotfiles
+          RSYNC_CMD="rsync -e \"ssh -v -o StrictHostKeyChecking=yes\" -avz --delete --exclude='.git' --exclude='.env' --exclude='.ssh' ./ ${USERHOST}:${SERVER_TARGET}"
           echo "Running: $RSYNC_CMD"
           attempts=0
           until [ $attempts -ge 3 ]
