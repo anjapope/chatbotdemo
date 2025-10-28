@@ -27,8 +27,16 @@ jobs:
         run: |
           # Default to 'ubuntu' if SERVER_USER is not set in secrets
           echo "Testing SSH connectivity to ${SERVER_HOST} as ${SERVER_USER:-ubuntu}"
+          SERVER_SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
+          # Write the private key to a temp file and use it directly to avoid agent issues
+          mkdir -p ~/.ssh
+          cat > /tmp/deploy_key <<'KEY'
+${{ secrets.SERVER_SSH_KEY }}
+KEY
+          chmod 600 /tmp/deploy_key
           # Use verbose output to surface auth debug
-          ssh -v -o BatchMode=yes -o ConnectTimeout=10 ${SERVER_USER:-ubuntu}@${SERVER_HOST} 'echo SSH_OK' || (echo 'SSH test failed' && exit 1)
+          ssh -i /tmp/deploy_key -v -o BatchMode=yes -o ConnectTimeout=10 ${SERVER_USER:-ubuntu}@${SERVER_HOST} 'echo SSH_OK' || (echo 'SSH test failed' && rm -f /tmp/deploy_key && exit 1)
+          rm -f /tmp/deploy_key
 
       - name: Sync project to server (exclude .env) with retries
         env:
@@ -65,6 +73,24 @@ jobs:
         run: |
           # Write .env on the remote server using the OPENAI_API_KEY secret
           # Use verbose output when executing remote commands to get clearer failure logs
+          SERVER_SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
+          # Write the private key to a temp file and use it for the remote heredoc
+          cat > /tmp/deploy_key <<'KEY'
+${{ secrets.SERVER_SSH_KEY }}
+KEY
+          chmod 600 /tmp/deploy_key
+          ssh -i /tmp/deploy_key -v -o StrictHostKeyChecking=yes ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} <<'EOF'
+          cat > $TARGET/.env <<'ENV'
+          OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
+          OPENAI_MODEL=gpt-4o
+          ADMIN_TOKEN=secret-token
+          RERANK_N=5
+          ENV
+          # Restart the backend (adjust path/command if your deploy differs)
+          pkill -f server_py.py || true
+          nohup python3 $TARGET/server_py.py > $TARGET/server.log 2>&1 &
+          EOF
+          rm -f /tmp/deploy_key
           ssh -v -o StrictHostKeyChecking=yes ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} <<'EOF'
           cat > $TARGET/.env <<'ENV'
           OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
