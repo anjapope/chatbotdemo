@@ -59,50 +59,17 @@ jobs:
 
       - name: Write .env on server and restart backend
         env:
-          SERVER_USER: ${{ secrets.SERVER_USER }}
-          SERVER_HOST: ${{ secrets.SERVER_HOST }}
           TARGET: ${{ secrets.SERVER_TARGET }}
         run: |
-          # Default to 'ubuntu' if SERVER_USER not provided
-          USERHOST="${SERVER_USER:-ubuntu}@${SERVER_HOST}"
           # Write .env on the remote server using the OPENAI_API_KEY secret
-          ssh ${USERHOST} bash -s <<'EOF'
-          set -e
-          mkdir -p "$TARGET"
-          cat > "$TARGET/.env" <<'ENV'
+          ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} <<'EOF'
+          cat > $TARGET/.env <<'ENV'
           OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
           OPENAI_MODEL=gpt-4o
           ADMIN_TOKEN=secret-token
           RERANK_N=5
           ENV
-
-          # Create a systemd service unit if it doesn't exist. This makes the backend resilient to reboots.
-          SERVICE_PATH=/etc/systemd/system/chatbot.service
-          if [ ! -f "$SERVICE_PATH" ]; then
-            sudo tee "$SERVICE_PATH" > /dev/null <<'SERVICE'
-[Unit]
-Description=Chatbot Python backend
-After=network.target
-
-[Service]
-User=${USER:-ubuntu}
-WorkingDirectory=${TARGET}
-ExecStart=/usr/bin/python3 ${TARGET}/server_py.py
-Restart=on-failure
-RestartSec=5
-EnvironmentFile=${TARGET}/.env
-
-[Install]
-WantedBy=multi-user.target
-SERVICE
-            sudo systemctl daemon-reload
-            sudo systemctl enable chatbot.service
-          fi
-
-          # Restart the service via systemd (will start it if not already running)
-          sudo systemctl restart chatbot.service || (sudo systemctl start chatbot.service)
-          # Give the service a moment to start and write a short status excerpt to the deploy log
-          sleep 1
-          sudo systemctl status chatbot.service --no-pager || true
-          sudo journalctl -u chatbot.service -n 40 --no-pager || true
+          # Restart the backend (adjust path/command if your deploy differs)
+          pkill -f server_py.py || true
+          nohup python3 $TARGET/server_py.py > $TARGET/server.log 2>&1 &
           EOF
