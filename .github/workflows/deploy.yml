@@ -27,8 +27,8 @@ jobs:
         run: |
           # Default to 'ubuntu' if SERVER_USER is not set in secrets
           echo "Testing SSH connectivity to ${SERVER_HOST} as ${SERVER_USER:-ubuntu}"
-          # Use verbose output and IdentitiesOnly to ensure the agent key is used and to surface auth debug
-          ssh -v -o IdentitiesOnly=yes -o BatchMode=yes -o ConnectTimeout=10 ${SERVER_USER:-ubuntu}@${SERVER_HOST} 'echo SSH_OK' || (echo 'SSH test failed' && exit 1)
+          # Use verbose output to surface auth debug
+          ssh -v -o BatchMode=yes -o ConnectTimeout=10 ${SERVER_USER:-ubuntu}@${SERVER_HOST} 'echo SSH_OK' || (echo 'SSH test failed' && exit 1)
 
       - name: Sync project to server (exclude .env) with retries
         env:
@@ -64,8 +64,8 @@ jobs:
           TARGET: ${{ secrets.SERVER_TARGET }}
         run: |
           # Write .env on the remote server using the OPENAI_API_KEY secret
-          # Use verbose output and IdentitiesOnly when executing remote commands to get clearer failure logs
-          ssh -v -o IdentitiesOnly=yes ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} <<'EOF'
+          # Use verbose output when executing remote commands to get clearer failure logs
+          ssh -v -o StrictHostKeyChecking=yes ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} <<'EOF'
           cat > $TARGET/.env <<'ENV'
           OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
           OPENAI_MODEL=gpt-4o
