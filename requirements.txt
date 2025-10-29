@@ -1,0 +1,4 @@
+# No external Python packages required — this backend uses only the Python standard library.
+# If you add third-party dependencies, list them here, one per line, for example:
+# requests==2.31.0
+# numpy==1.27.0
