@@ -26,6 +26,7 @@
   <a href="index.html">Home</a>
   <a href="chat.html">Chat</a>
   <a href="compare.html">Compare</a>
+  <a href="payroll.html">Payroll</a>
   <a href="instructions.html">Instructions</a>
   <a href="peer_review.html" class="primary">Peer Review</a>
   <a href="README.md">README</a>
@@ -45,18 +46,30 @@
   </main>
 
   <script>
-    console.log('[peer_review] script loaded');
-    const API = 'https://Z514-demo.onrender.com/chat';
+  console.log('[peer_review] script loaded');
+  // For local preview: set API = 'LOCAL' to load ./reviews.json from this folder
+  // For production, set API to your backend base URL (e.g. 'https://example.com')
+  const API = 'LOCAL';
+  const REVIEW_ENDPOINT = (API === 'LOCAL') ? 'reviews.json' : (API.replace(/\/$/, '') + '/reviews');
     async function fetchDataset(){
       const el = document.getElementById('list');
       el.innerHTML = 'Loading…';
       try{
-        const res = await fetch(API + '/reviews');
-        if(!res.ok) throw new Error('Reviews fetch failed');
-        const data = await res.json();
+        // Fetch from reviews.json
+        const res = await fetch(REVIEW_ENDPOINT);
+        let data = [];
+        if(res.ok){
+          data = await res.json();
+        }
         if(!Array.isArray(data)) throw new Error('Bad reviews');
-        // only show user-submitted reviews (those with assistantText, comment, or rating)
-        let reviews = data.filter(r => r && (r.assistantText || r.comment || r.rating !== undefined));
+        // Also load from localStorage (peer_review_preview)
+        let localData = [];
+        try {
+          const raw = localStorage.getItem('peer_review_preview');
+          if(raw) localData = JSON.parse(raw);
+        } catch(e) { localData = []; }
+        // Merge and filter
+        let reviews = [...data, ...localData].filter(r => r && (r.assistantText || r.comment || r.rating !== undefined));
         // Sort so the most recent submissions appear first (newest on top)
         try{
           reviews.sort((a,b)=>{
@@ -70,17 +83,19 @@
           el.innerHTML = '<div class="loading">No user reviews found</div>';
           return;
         }
-          reviews.forEach((r, idx) => {
+        reviews.forEach((r, idx) => {
             const div = document.createElement('div');
             div.className = 'example';
             const title = escapeHtml(r.messageId || ('review-' + idx));
+            const prompt = escapeHtml(r.userPrompt || '(No prompt recorded)');
             const body = escapeHtml((r.assistantText || '').slice(0, 300));
             const small = escapeHtml(r.comment || '');
             const meta = [];
             if (r.rating !== undefined && r.rating !== null) meta.push('Rating: ' + String(r.rating));
             if (r.timestamp) meta.push('At: ' + String(r.timestamp));
-            // include a Review button for an explicit selection action
-            div.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center"><strong>${title}</strong><button class="select-btn" aria-label="Select ${title} for review">Review</button></div><div style="margin-top:6px" class=\"resp\">${body}</div>${small ? `<div class=\"small-comment\">${small}</div>` : ''}<div style=\"margin-top:6px;color:var(--muted)\">${escapeHtml(meta.join(' • '))}</div>`;
+            // Add a button to show the full review details
+            const showBtnId = `show-review-${title}`;
+            div.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center"><strong>${title}</strong><button class="select-btn" aria-label="Select ${title} for review">Review</button></div><div style="margin-top:6px;font-weight:500;color:#334">Prompt:</div><div style="margin-bottom:6px;padding:6px 0;">${prompt}</div><div style="margin-top:6px" class="resp">${body}</div><button class="show-review-btn" id="${showBtnId}" style="margin-top:6px;">Show review details</button><div class="review-details" style="display:none;margin-top:6px;padding:8px;background:rgba(0,0,0,0.04);border-radius:6px;"></div>${small ? `<div class=\"small-comment\">${small}</div>` : ''}<div style=\"margin-top:6px;color:var(--muted)\">${escapeHtml(meta.join(' • '))}</div>`;
             const item = Object.assign({}, r);
             // wire the select button only (so clicks on the body don't accidentally select)
             const btn = div.querySelector('.select-btn');
@@ -92,6 +107,34 @@
                 prev.forEach(p=>p.classList.remove('selected'));
                 div.classList.add('selected');
                 selectItem(item);
+              });
+            }
+            // wire up show review details button
+            const showBtn = div.querySelector('.show-review-btn');
+            const detailsDiv = div.querySelector('.review-details');
+            if(showBtn && detailsDiv){
+              showBtn.addEventListener('click', (ev)=>{
+                ev.stopPropagation();
+                if(detailsDiv.style.display === 'none'){
+                  // Build review details
+                  let details = '';
+                  details += `<div><strong>Rating:</strong> ${typeof r.rating === 'number' ? r.rating : '(none)'}</div>`;
+                  details += `<div><strong>Comment:</strong> ${escapeHtml(r.comment || '(none)')}</div>`;
+                  if(r.criteria){
+                    details += '<div><strong>Criteria:</strong>';
+                    details += `<ul style="margin:4px 0 0 16px;">`;
+                    details += `<li>Factuality: ${typeof r.criteria.factuality === 'number' ? r.criteria.factuality : '(none)'}</li>`;
+                    details += `<li>Clarity: ${typeof r.criteria.clarity === 'number' ? r.criteria.clarity : '(none)'}</li>`;
+                    details += `<li>Ethics: ${typeof r.criteria.ethics === 'number' ? r.criteria.ethics : '(none)'}</li>`;
+                    details += `</ul></div>`;
+                  }
+                  detailsDiv.innerHTML = details;
+                  detailsDiv.style.display = 'block';
+                  showBtn.textContent = 'Hide review details';
+                }else{
+                  detailsDiv.style.display = 'none';
+                  showBtn.textContent = 'Show review details';
+                }
               });
             }
             el.appendChild(div);
@@ -163,8 +206,16 @@
           timestamp: (new Date()).toISOString()
         };
         try{
-          const res = await fetch(API + '/review', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(review) });
-          if(!res.ok) throw new Error('save failed');
+          // In LOCAL preview mode, don't attempt to POST to a backend — simulate success
+          let res;
+          if (API === 'LOCAL') {
+            console.log('Preview mode: would POST review', review);
+            // pretend it succeeded
+            res = { ok: true, json: async () => ({}) };
+          } else {
+            res = await fetch(API + '/review', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(review) });
+            if(!res.ok) throw new Error('save failed');
+          }
           statusEl.style.display = 'inline'; setTimeout(()=>statusEl.style.display='none',1500);
           // refresh dataset list so updated rating shows
           await fetchDataset();
@@ -172,6 +223,12 @@
       }
     async function submitRank(id,rank){
       try{
+        if (API === 'LOCAL') {
+          // preview mode — don't POST
+          console.log('Preview mode: would submit rank', { itemId: id, rank });
+          alert('Preview: rank not submitted');
+          return;
+        }
         const res = await fetch(API + '/peer/rank', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({itemId:id,rank})});
         if(!res.ok) throw new Error('rank failed');
         alert('Thanks — rank submitted');

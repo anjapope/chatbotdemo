@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Payroll — Megalogoi</title>
+  <link rel="stylesheet" href="theme.css">
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    body { background: var(--bg-gradient, #f8fafc); color: #222; }
+    .payroll-card { max-width: 700px; margin: 40px auto; background: #fff; border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.08); padding: 32px; }
+    h1 { font-size: 2rem; margin-bottom: 24px; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
+    th, td { padding: 12px 8px; border-bottom: 1px solid #e2e8f0; text-align: left; }
+    th { background: #f1f5f9; font-weight: 600; }
+    .incentive { color: #3bd671; font-weight: 500; }
+    .total { font-weight: 700; }
+    .note { font-size: 0.95em; color: #475569; margin-top: 18px; }
+  </style>
+</head>
+<body>
+  <nav class="topnav">
+    <a class="brand" href="index.html"><span class="dot" aria-hidden></span> Megalogoi Training Chatbot</a>
+    <div class="nav-links">
+      <a href="index.html">Home</a>
+      <a href="chat.html">Chat</a>
+      <a href="compare.html">Compare</a>
+      <a href="payroll.html" class="primary">Payroll</a>
+      <a href="instructions.html">Instructions</a>
+      <a href="peer_review.html">Peer Review</a>
+      <a href="README.md">README</a>
+    </div>
+  </nav>
+  <div class="payroll-card">
+    <h1>Payroll Dashboard</h1>
+    <div style="margin-bottom:18px;background:#f8fafc;padding:12px 18px;border-radius:8px;box-shadow:0 2px 8px rgba(60,220,120,0.07);">
+  <strong>Review Tasks Completed:</strong> <span style="color:#3bd671;font-weight:600;">180</span>
+    </div>
+    <div style="margin-bottom:18px;">
+      <div style="font-size:1.2em;font-weight:600;">Welcome, <span style="color:#3bd671">Nameless Functionary</span></div>
+      <div style="color:#475569;font-size:0.98em;margin-top:4px;">Pay Period: Oct 1 – Oct 31, 2025</div>
+    </div>
+    <div style="margin-bottom:24px;">
+      <div style="font-size:1.1em;font-weight:500;">Base Wages</div>
+      <table>
+        <thead>
+          <tr>
+            <th>Hours Worked</th>
+            <th>Hourly Wage</th>
+            <th>Subtotal</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>80</td>
+            <td>$15.00</td>
+            <td>$1,200</td>
+          </tr>
+        </tbody>
+      </table>
+      <div style="font-size:1.5em;font-weight:700;color:#334">$1,200</div>
+    </div>
+    <div style="margin-bottom:24px;">
+      <div style="font-size:1.1em;font-weight:500;">Special Incentives Earned</div>
+      <ul style="margin:10px 0 0 18px;">
+        <li><span class="incentive">$180</span> — 60 prompt reviews in 72 hours <span style="color:#64748b;font-size:0.95em;">(Oct 10–13)</span></li>
+        <li><span class="incentive">$60</span> — 20 prompt reviews in 24 hours <span style="color:#64748b;font-size:0.95em;">(Oct 20)</span></li>
+      </ul>
+    </div>
+    <div style="margin-bottom:24px;">
+      <div style="font-size:1.1em;font-weight:500;">Total Earned</div>
+      <div style="font-size:2em;font-weight:700;color:#3bd671;">$1,440</div>
+    </div>
+    <div class="note">Incentives are awarded for high-volume, high-quality prompt reviews completed within set timeframes. Track your progress and maximize your earnings by reviewing prompts efficiently!</div>
+    <div class="note" style="margin-top:8px;background:#e0f7fa;padding:12px;border-radius:8px;border:1px solid #3bd671;">
+      <strong>Reminder:</strong> All reviewers should be generating at least <b>3 review tasks per hour</b> to maintain expected productivity.
+    </div>
+    <div class="note" style="margin-top:12px;background:#fffbe6;padding:14px;border-radius:8px;border:1px solid #ffe58f;">
+      <strong>Important:</strong> All payments shown are gross and do <u>not</u> include any tax withholdings. You are officially designated as an independent contractor and will be responsible for your own taxes, including filing a <b>1040-ES</b> with the IRS. Please plan accordingly.
+    </div>
+  </div>
+</body>
+</html>

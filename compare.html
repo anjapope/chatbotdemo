@@ -17,11 +17,12 @@
 <nav class="topnav">
   <a class="brand" href="index.html"><span class="dot" aria-hidden></span> Megalogoi Training Chatbot</a>
   <div class="nav-links">
-    <a href="index.html">Home</a>
-    <a href="chat.html">Chat</a>
-    <a href="compare.html" class="primary">Compare</a>
-    <a href="instructions.html">Instructions</a>
-    <a href="peer_review.html">Peer Review</a>
+  <a href="index.html">Home</a>
+  <a href="chat.html">Chat</a>
+  <a href="compare.html" class="primary">Compare</a>
+  <a href="payroll.html">Payroll</a>
+  <a href="instructions.html">Instructions</a>
+  <a href="peer_review.html">Peer Review</a>
   </div>
 </nav>
 <div class="container">
@@ -63,6 +64,10 @@
           <span id="rewriteASaved" style="color:#6c6;display:none;margin-left:6px">Saved</span>
         </div>
       </div>
+      <div style="margin-top:12px">
+        <button id="sendToPeerA" style="background:#3bd671;color:#fff;padding:8px 16px;border-radius:6px;border:none;cursor:pointer;">Send Response A to Peer Review</button>
+        <span id="peerASent" style="color:#3bd671;display:none;margin-left:8px">Sent!</span>
+      </div>
     </div>
     <div class="col" id="rightCol">
       <h3>Response B</h3>
@@ -92,11 +97,86 @@
           <span id="rewriteBSaved" style="color:#6c6;display:none;margin-left:6px">Saved</span>
         </div>
       </div>
+      <div style="margin-top:12px">
+        <button id="sendToPeerB" style="background:#3bd671;color:#fff;padding:8px 16px;border-radius:6px;border:none;cursor:pointer;">Send Response B to Peer Review</button>
+        <span id="peerBSent" style="color:#3bd671;display:none;margin-left:8px">Sent!</span>
+      </div>
     </div>
   </div>
   <div id="status" class="loading">Ready</div>
 </div>
 <script>
+// Helper to append a review entry to reviews.json (local preview only)
+async function appendReviewToJSON(entry) {
+  try {
+    // Only works in local preview mode (requires server-side API for production)
+    const resp = await fetch('reviews.json');
+    let reviews = [];
+    if (resp.ok) {
+      reviews = await resp.json();
+    }
+    reviews.push(entry);
+    // Save to localStorage for preview (cannot write to file directly from browser)
+    localStorage.setItem('peer_review_preview', JSON.stringify(reviews));
+    return true;
+  } catch (e) {
+    console.error('Failed to append review:', e);
+    return false;
+  }
+}
+// Send to Peer Review button logic
+const sendToPeerA = document.getElementById('sendToPeerA');
+const peerASent = document.getElementById('peerASent');
+const sendToPeerB = document.getElementById('sendToPeerB');
+const peerBSent = document.getElementById('peerBSent');
+
+sendToPeerA.addEventListener('click', async () => {
+  if (!lastPair) return alert('Generate a pair first');
+  const critData = loadCritFor(lastPair.id);
+  const entry = {
+    messageId: lastPair.id + '-A',
+    userPrompt: lastPair.prompt,
+    assistantText: lastPair.a,
+    rating: typeof critData.factA === 'number' && typeof critData.appA === 'number' && typeof critData.clarA === 'number'
+      ? Math.round(((critData.factA + critData.appA + critData.clarA) / 3) * 100) / 100 : null,
+    comment: critData.critA || '',
+    criteria: {
+      factuality: critData.factA || null,
+      clarity: critData.clarA || null,
+      ethics: critData.appA || null
+    },
+    timestamp: new Date().toISOString()
+  };
+  const ok = await appendReviewToJSON(entry);
+  if (ok) {
+    peerASent.style.display = 'inline';
+    setTimeout(() => { peerASent.style.display = 'none'; }, 2000);
+  }
+});
+
+sendToPeerB.addEventListener('click', async () => {
+  if (!lastPair) return alert('Generate a pair first');
+  const critData = loadCritFor(lastPair.id);
+  const entry = {
+    messageId: lastPair.id + '-B',
+    userPrompt: lastPair.prompt,
+    assistantText: lastPair.b,
+    rating: typeof critData.factB === 'number' && typeof critData.appB === 'number' && typeof critData.clarB === 'number'
+      ? Math.round(((critData.factB + critData.appB + critData.clarB) / 3) * 100) / 100 : null,
+    comment: critData.critB || '',
+    criteria: {
+      factuality: critData.factB || null,
+      clarity: critData.clarB || null,
+      ethics: critData.appB || null
+    },
+    timestamp: new Date().toISOString()
+  };
+  const ok = await appendReviewToJSON(entry);
+  if (ok) {
+    peerBSent.style.display = 'inline';
+    setTimeout(() => { peerBSent.style.display = 'none'; }, 2000);
+  }
+});
 const API = 'https://z514-demo.onrender.com'; // Configure your backend URL
 const genBtn = document.getElementById('genBtn');
 const refreshBtn = document.getElementById('refreshBtn');
